@@ -9,7 +9,7 @@ use crate::error::VersoError;
 use super::ChainBackend;
 
 pub struct EsploraBackend {
-    client: bdk_esplora::esplora_client::AsyncClient,
+    client: esplora_client::AsyncClient,
     #[allow(dead_code)]
     network: Network,
     derivation_limit: u32,
@@ -17,7 +17,7 @@ pub struct EsploraBackend {
 
 impl EsploraBackend {
     pub fn new(url: &str, network: Network, derivation_limit: u32) -> Result<Self, VersoError> {
-        let client = bdk_esplora::esplora_client::Builder::new(url)
+        let client = esplora_client::Builder::new(url)
             .build_async()
             .map_err(|e| VersoError::BackendConnection(e.to_string()))?;
         Ok(Self {
@@ -43,7 +43,9 @@ impl ChainBackend for EsploraBackend {
             });
         }
 
-        let stop_gap = self.derivation_limit as usize;
+        // Addresses are pre-revealed to derivation_limit in Scanner::new.
+        // A small stop_gap terminates scanning promptly past the revealed range.
+        let stop_gap = 20usize;
         let request = wallet.start_full_scan().build();
         let update = self
             .client
