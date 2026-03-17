@@ -45,11 +45,6 @@ fn app() -> Element {
     let toggle_icon = if dark_mode() { "☀" } else { "◐" };
     let toggle_label = if dark_mode() { "LIGHT" } else { "DARK" };
 
-    let status_dot_class = match screen() {
-        state::Screen::Loading => "status-dot scanning",
-        state::Screen::Error => "status-dot error",
-        _ => "status-dot",
-    };
     let status_text = match screen() {
         state::Screen::Input => "",
         state::Screen::Loading => "SCANNING",
@@ -79,7 +74,6 @@ fn app() -> Element {
                 }
                 div { class: "header-right",
                     div { class: "header-status",
-                        div { class: "{status_dot_class}" }
                         "{status_text}"
                     }
                     button {

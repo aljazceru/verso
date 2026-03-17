@@ -147,27 +147,6 @@ html, body {
   letter-spacing: 0.1em;
 }
 
-.status-dot {
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: var(--clean);
-  flex-shrink: 0;
-}
-
-.status-dot.scanning {
-  background: var(--bitcoin);
-  animation: pulse-dot 1s ease-in-out infinite;
-}
-
-.status-dot.error {
-  background: var(--critical);
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%       { opacity: 0.5; transform: scale(0.7); }
-}
-
 /* ─── Theme Toggle ───────────────────────────────────────────────────────── */
 
 .theme-toggle {
