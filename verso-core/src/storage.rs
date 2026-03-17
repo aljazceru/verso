@@ -25,6 +25,11 @@ pub async fn open_wallet(
         .await
         .map_err(|e| VersoError::Storage(e.to_string()))?;
 
+    store
+        .migrate()
+        .await
+        .map_err(|e| VersoError::Storage(e.to_string()))?;
+
     // First, try to load an existing wallet.
     // Clone to satisfy 'static bound required by IntoWalletDescriptor.
     let ext_owned = external_desc.to_owned();

@@ -17,7 +17,7 @@ pub enum WalletKind {
 }
 
 impl WalletKind {
-    fn as_mut_wallet(&mut self) -> &mut Wallet {
+    pub(crate) fn as_mut_wallet(&mut self) -> &mut Wallet {
         match self {
             WalletKind::Ephemeral(w) => w,
             WalletKind::Persisted(pw) => pw,
@@ -52,12 +52,13 @@ impl Scanner {
             )),
             [single] => {
                 let external = single.clone();
-                let internal = if single.contains("/0/*") {
-                    single.replace("/0/*", "/1/*")
-                } else {
-                    // Single-key wallet — use the same descriptor for both keychains.
-                    single.clone()
-                };
+                if !single.contains("/0/*") {
+                    return Err(VersoError::DescriptorParse(
+                        "cannot auto-derive internal keychain: descriptor has no /0/* wildcard path"
+                            .to_string(),
+                    ));
+                }
+                let internal = single.replace("/0/*", "/1/*");
                 validate_descriptor(&external, network)?;
                 validate_descriptor(&internal, network)?;
                 Ok((external, internal))
@@ -178,14 +179,16 @@ mod tests {
 
     #[test]
     fn test_single_key_no_path_uses_same_for_both() {
-        // A descriptor with a fixed derivation path (no /0/* wildcard) should
-        // be used for both keychains unchanged.
+        // A descriptor with no /0/* wildcard should now return an error,
+        // because we cannot safely auto-derive the internal keychain.
         let desc = format!("wpkh({}/1/2/*)", TPUB);
         let descriptors = vec![desc.clone()];
         let result = Scanner::parse_descriptors(&descriptors, Network::Testnet);
-        assert!(result.is_ok(), "Expected Ok, got: {:?}", result);
-        let (got_ext, got_int) = result.unwrap();
-        assert_eq!(got_ext, got_int, "Both keychains should be identical when no /0/* path present");
+        assert!(
+            matches!(result, Err(VersoError::DescriptorParse(_))),
+            "Expected DescriptorParse error when no /0/* path present, got: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -194,6 +197,30 @@ mod tests {
         assert!(
             matches!(result, Err(VersoError::DescriptorParse(_))),
             "Expected DescriptorParse error for empty input"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_scanner_new_ephemeral() {
+        use crate::config::BackendConfig;
+        let config = ScanConfig {
+            descriptors: vec![ext_desc(), int_desc()],
+            network: Network::Testnet,
+            backend: BackendConfig::Esplora {
+                url: "https://mempool.space/testnet/api".to_string(),
+            },
+            known_risky_txids: None,
+            known_exchange_txids: None,
+            derivation_limit: 10,
+            data_dir: None,
+            ephemeral: true,
+            progress_tx: None,
+        };
+        let scanner = Scanner::new(&config).await;
+        assert!(
+            scanner.is_ok(),
+            "Scanner::new should succeed in ephemeral mode: {:?}",
+            scanner.err()
         );
     }
 }
