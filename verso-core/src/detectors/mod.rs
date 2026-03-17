@@ -3,13 +3,17 @@ use crate::graph::GraphView;
 use crate::report::Finding;
 
 pub mod address_reuse;
+pub mod behavioral;
 pub mod change_detection;
 pub mod cioh;
 pub mod cluster_merge;
 pub mod consolidation;
 pub mod dust;
 pub mod dust_spending;
+pub mod exchange_origin;
 pub mod script_mixing;
+pub mod tainted;
+pub mod utxo_age;
 
 pub trait Detector: Send + Sync {
     fn name(&self) -> &'static str;
@@ -27,6 +31,10 @@ pub fn all_detectors() -> Vec<Box<dyn Detector>> {
         Box::new(consolidation::ConsolidationDetector),
         Box::new(script_mixing::ScriptMixingDetector),
         Box::new(cluster_merge::ClusterMergeDetector),
+        Box::new(utxo_age::UtxoAgeDetector),
+        Box::new(exchange_origin::ExchangeOriginDetector),
+        Box::new(tainted::TaintedDetector),
+        Box::new(behavioral::BehavioralDetector),
     ]
 }
 

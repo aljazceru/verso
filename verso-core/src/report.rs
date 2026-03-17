@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Report {
     pub findings: Vec<Finding>,
     pub warnings: Vec<Finding>,
@@ -8,24 +8,24 @@ pub struct Report {
     pub summary: Summary,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Stats {
-    pub total_txs: usize,
-    pub total_addresses: usize,
+    pub transactions_analyzed: usize,
+    pub addresses_derived: usize,
+    #[serde(skip)]
     pub total_utxos: usize,
-    pub finding_count: usize,
-    pub warning_count: usize,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Summary {
+    pub findings: usize,
+    pub warnings: usize,
     pub clean: bool,
-    pub risk_level: Severity,
-    pub top_issues: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Finding {
+    #[serde(rename = "type")]
     pub finding_type: FindingType,
     pub severity: Severity,
     pub description: String,
@@ -56,7 +56,7 @@ pub enum FindingType {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Severity {
     Low,
     Medium,

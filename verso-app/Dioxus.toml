@@ -1,0 +1,9 @@
+[application]
+name = "Verso"
+default_platform = "desktop"
+
+[web.app]
+title = "Verso"
+
+[desktop]
+icon = []

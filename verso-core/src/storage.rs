@@ -11,12 +11,15 @@ use crate::error::VersoError;
 ///
 /// If the database file already exists, attempts to load the existing wallet.
 /// If the file does not exist (or the DB is empty), creates a fresh wallet.
+///
+/// Returns both the [`PersistedWallet`] and the [`Store`] so the caller can
+/// call `wallet.persist_async(&mut store)` later to flush synced state to disk.
 pub async fn open_wallet(
     external_desc: &str,
     internal_desc: &str,
     network: Network,
     db_path: &Path,
-) -> Result<PersistedWallet<Store>, VersoError> {
+) -> Result<(PersistedWallet<Store>, Store), VersoError> {
     let path_str = db_path
         .to_str()
         .ok_or_else(|| VersoError::Storage("db_path is not valid UTF-8".into()))?;
@@ -43,15 +46,16 @@ pub async fn open_wallet(
         .map_err(|e| VersoError::Storage(e.to_string()))?;
 
     if let Some(wallet) = load_result {
-        return Ok(wallet);
+        return Ok((wallet, store));
     }
 
     // No existing wallet — create a new one.
-    CreateParams::new(ext_owned, int_owned)
+    let wallet = CreateParams::new(ext_owned, int_owned)
         .network(network)
         .create_wallet_async(&mut store)
         .await
-        .map_err(|e| VersoError::Storage(e.to_string()))
+        .map_err(|e| VersoError::Storage(e.to_string()))?;
+    Ok((wallet, store))
 }
 
 /// Compute a deterministic DB path from the descriptor and network.

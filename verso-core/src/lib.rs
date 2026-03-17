@@ -17,7 +17,7 @@ use crate::scanner::Scanner;
 use crate::backend::{BitcoindBackend, EsploraBackend};
 use crate::graph::WalletGraph as WG;
 use crate::config::{BackendConfig, ScanProgress};
-use crate::report::{Stats, Summary, FindingCategory, Severity};
+use crate::report::{Stats, Summary, FindingCategory};
 
 pub async fn scan(config: ScanConfig) -> Result<Report, VersoError> {
     // Progress helper closure
@@ -86,26 +86,16 @@ pub async fn scan(config: ScanConfig) -> Result<Report, VersoError> {
 
     // 9. Compute stats
     let stats = Stats {
-        total_txs: graph.our_txids().len(),
-        total_addresses: graph.our_addresses().len(),
+        transactions_analyzed: graph.our_txids().len(),
+        addresses_derived: graph.our_addresses().len(),
         total_utxos: graph.utxos().len(),
-        finding_count: findings.len(),
-        warning_count: warnings.len(),
     };
 
     // 10. Compute summary
-    let max_severity = findings.iter().chain(warnings.iter())
-        .map(|f| f.severity.clone())
-        .max()
-        .unwrap_or(Severity::Low);
     let summary = Summary {
+        findings: findings.len(),
+        warnings: warnings.len(),
         clean: findings.is_empty() && warnings.is_empty(),
-        risk_level: max_severity,
-        top_issues: findings
-            .iter()
-            .take(3)
-            .map(|f| f.description.clone())
-            .collect(),
     };
 
     Ok(Report {
@@ -204,29 +194,21 @@ mod tests {
         let warnings: Vec<crate::report::Finding> = vec![];
 
         let stats = Stats {
-            total_txs: 0,
-            total_addresses: 0,
+            transactions_analyzed: 0,
+            addresses_derived: 0,
             total_utxos: 0,
-            finding_count: findings.len(),
-            warning_count: warnings.len(),
         };
 
-        let max_severity = findings
-            .iter()
-            .map(|f| f.severity.clone())
-            .max()
-            .unwrap_or(Severity::Low);
-
         let summary = Summary {
+            findings: findings.len(),
+            warnings: warnings.len(),
             clean: findings.is_empty() && warnings.is_empty(),
-            risk_level: max_severity,
-            top_issues: findings.iter().take(3).map(|f| f.description.clone()).collect(),
         };
 
         assert!(summary.clean);
-        assert_eq!(summary.risk_level, Severity::Low);
-        assert!(summary.top_issues.is_empty());
-        assert_eq!(stats.finding_count, 0);
-        assert_eq!(stats.warning_count, 0);
+        assert_eq!(summary.findings, 0);
+        assert_eq!(summary.warnings, 0);
+        assert_eq!(stats.transactions_analyzed, 0);
+        assert_eq!(stats.addresses_derived, 0);
     }
 }

@@ -8,3 +8,4 @@ verso-core = { path = "../verso-core" }
 clap = { version = "4", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 serde_json = "1"
+bitcoin = "0.32"

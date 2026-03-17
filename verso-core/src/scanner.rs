@@ -80,22 +80,26 @@ impl Scanner {
                 "at least one descriptor is required".into(),
             )),
             [single] => {
-                let external = single.clone();
-                if !single.contains("/0/*") {
+                // Auto-wrap bare extended keys (xpub/ypub/zpub/tpub/upub/vpub)
+                // that were passed without a descriptor template.
+                let external = auto_wrap_key(single.trim())?;
+                if !external.contains("/0/*") {
                     return Err(VersoError::DescriptorParse(
                         "cannot auto-derive internal keychain: descriptor has no /0/* wildcard path"
                             .to_string(),
                     ));
                 }
-                let internal = single.replace("/0/*", "/1/*");
+                let internal = external.replace("/0/*", "/1/*");
                 validate_descriptor(&external, network)?;
                 validate_descriptor(&internal, network)?;
                 Ok((external, internal))
             }
             [ext, int, ..] => {
-                validate_descriptor(ext, network)?;
-                validate_descriptor(int, network)?;
-                Ok((ext.clone(), int.clone()))
+                let ext = auto_wrap_key(ext.trim())?;
+                let int = auto_wrap_key(int.trim())?;
+                validate_descriptor(&ext, network)?;
+                validate_descriptor(&int, network)?;
+                Ok((ext, int))
             }
         }
     }
@@ -141,6 +145,81 @@ impl Scanner {
 
         Ok(Scanner { wallet: wallet_kind })
     }
+}
+
+/// If the input looks like a bare extended public key (no descriptor wrapper),
+/// normalize its version bytes to standard xpub/tpub (miniscript only understands
+/// those) and auto-wrap as `wpkh(key/0/*)`.
+///
+/// SLIP-132 defines alternative version prefixes that encode script-type intent:
+///   mainnet: ypub (P2SH-P2WPKH), zpub (P2WPKH)  → converted to xpub
+///   testnet: upub (P2SH-P2WPKH), vpub (P2WPKH)  → converted to tpub
+/// xpub/tpub are left unchanged.
+fn auto_wrap_key(s: &str) -> Result<String, VersoError> {
+    let bare_prefixes = ["xpub", "ypub", "zpub", "tpub", "upub", "vpub"];
+    let is_bare = bare_prefixes.iter().any(|p| s.starts_with(p)) && !s.contains('(');
+    if is_bare {
+        let normalized = normalize_xpub_version(s)?;
+        Ok(format!("wpkh({}/0/*)", normalized))
+    } else {
+        Ok(s.to_string())
+    }
+}
+
+/// Convert SLIP-132 extended key version bytes (ypub/zpub/upub/vpub) to the
+/// standard BIP-32 xpub/tpub that miniscript can parse.
+///
+/// The on-disk encoding is base58check over 78 bytes:
+///   [0..4]  version (4 bytes) ← we replace this
+///   [4..78] depth, fingerprint, child_number, chain_code, pubkey
+/// After swapping the version the rest of the payload is unchanged.
+fn normalize_xpub_version(key: &str) -> Result<String, VersoError> {
+    use bitcoin::hashes::{sha256d, Hash};
+
+    // SLIP-132 → BIP-32 canonical version bytes
+    const MAINNET_XPUB: [u8; 4] = [0x04, 0x88, 0xB2, 0x1E];
+    const TESTNET_TPUB: [u8; 4] = [0x04, 0x35, 0x87, 0xCF];
+
+    let canonical: Option<[u8; 4]> = if key.starts_with("ypub") || key.starts_with("zpub") {
+        Some(MAINNET_XPUB)
+    } else if key.starts_with("upub") || key.starts_with("vpub") {
+        Some(TESTNET_TPUB)
+    } else {
+        None
+    };
+
+    let canonical = match canonical {
+        None => return Ok(key.to_string()),
+        Some(v) => v,
+    };
+
+    // base58::decode returns raw bytes INCLUDING the 4-byte checksum appended
+    // at the end. Total length for an xpub is 78 payload + 4 checksum = 82 bytes.
+    let raw = bitcoin::base58::decode(key)
+        .map_err(|e| VersoError::DescriptorParse(format!("invalid extended key: {e}")))?;
+
+    if raw.len() < 8 {
+        return Err(VersoError::DescriptorParse("extended key too short".into()));
+    }
+
+    let payload = &raw[..raw.len() - 4];
+    let provided_checksum = &raw[raw.len() - 4..];
+
+    // Verify checksum before we do anything
+    let expected = sha256d::Hash::hash(payload);
+    if provided_checksum != &expected[..4] {
+        return Err(VersoError::DescriptorParse(
+            "invalid extended key: checksum mismatch".into(),
+        ));
+    }
+
+    // Swap version bytes and recompute checksum
+    let mut new_payload = payload.to_vec();
+    new_payload[..4].copy_from_slice(&canonical);
+    let new_hash = sha256d::Hash::hash(&new_payload);
+    new_payload.extend_from_slice(&new_hash[..4]);
+
+    Ok(bitcoin::base58::encode(&new_payload))
 }
 
 /// Validate a descriptor string using miniscript.
