@@ -11,32 +11,61 @@ use crate::error::VersoError;
 use crate::storage;
 
 /// Holds either an ephemeral (in-memory) wallet or a persisted wallet.
+///
+/// For the `Persisted` variant the [`Store`] (SQLite connection pool) is kept
+/// alongside the wallet so that `persist_if_needed` can flush staged changes
+/// back to disk after a sync.
 pub enum WalletKind {
     Ephemeral(Wallet),
-    Persisted(PersistedWallet<Store>),
+    Persisted(PersistedWallet<Store>, Store),
 }
 
 impl WalletKind {
     pub(crate) fn as_mut_wallet(&mut self) -> &mut Wallet {
         match self {
             WalletKind::Ephemeral(w) => w,
-            WalletKind::Persisted(pw) => pw,
+            // PersistedWallet<Store> implements DerefMut<Target=Wallet>.
+            WalletKind::Persisted(pw, _store) => pw,
         }
     }
 
     pub fn as_wallet(&self) -> &Wallet {
         match self {
             WalletKind::Ephemeral(w) => w,
-            WalletKind::Persisted(pw) => pw,
+            // PersistedWallet<Store> implements Deref<Target=Wallet>.
+            WalletKind::Persisted(pw, _store) => pw,
+        }
+    }
+
+    /// Persist any staged wallet changes to the underlying store.
+    ///
+    /// For ephemeral wallets this is a no-op.  For persisted wallets it calls
+    /// [`PersistedWallet::persist_async`] which writes the staged changeset
+    /// (produced by `full_sync`) to the SQLite database.
+    pub async fn persist_if_needed(&mut self) -> Result<(), VersoError> {
+        match self {
+            WalletKind::Ephemeral(_) => Ok(()),
+            WalletKind::Persisted(wallet, store) => {
+                wallet
+                    .persist_async(store)
+                    .await
+                    .map(|_| ())
+                    .map_err(|e| VersoError::Storage(e.to_string()))
+            }
         }
     }
 }
 
 pub struct Scanner {
-    pub wallet: WalletKind,
+    pub(crate) wallet: WalletKind,
 }
 
 impl Scanner {
+    /// Consume the scanner and return the inner wallet kind.
+    pub fn into_wallet(self) -> WalletKind {
+        self.wallet
+    }
+
     /// Parse 1 or 2 descriptor strings into an (external, internal) pair.
     ///
     /// If a single descriptor containing `/0/*` is provided, the internal
@@ -92,9 +121,9 @@ impl Scanner {
                 )
             })?;
             let db_path = storage::resolve_db_path(data_dir, &ext, config.network);
-            let wallet =
+            let (wallet, store) =
                 storage::open_wallet(&ext, &int, config.network, &db_path).await?;
-            WalletKind::Persisted(wallet)
+            WalletKind::Persisted(wallet, store)
         };
 
         // Reveal addresses up to derivation_limit for both keychains.

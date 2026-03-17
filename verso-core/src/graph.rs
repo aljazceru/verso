@@ -6,6 +6,7 @@ use bdk_wallet::{KeychainKind, Wallet};
 
 use crate::backend::ChainBackend;
 use crate::error::VersoError;
+use crate::scanner::WalletKind;
 
 // ─── ScriptType ──────────────────────────────────────────────────────────────
 
@@ -129,7 +130,7 @@ pub trait GraphView: Send + Sync {
 
 /// Pre-fetched wallet transaction graph backed by a real BDK `Wallet`.
 pub struct WalletGraph {
-    wallet: Wallet,
+    wallet: WalletKind,
     network: Network,
     tx_cache: HashMap<Txid, Transaction>,
     input_cache: HashMap<Txid, Vec<InputInfo>>,
@@ -141,22 +142,25 @@ pub struct WalletGraph {
 impl WalletGraph {
     /// Build a `WalletGraph` by fetching all transactions through the given backend.
     pub async fn build(
-        wallet: Wallet,
+        wallet: WalletKind,
         backend: &dyn ChainBackend,
         network: Network,
     ) -> Result<Self, VersoError> {
+        // Borrow the inner Wallet for all read operations.
+        let w: &Wallet = wallet.as_wallet();
+
         // Pre-build a set of internal-keychain scripts for fast is_change() look-ups.
         // Use all *revealed* addresses (not just unused ones) so active wallets
         // that have spent from the internal keychain are correctly identified.
         let internal_scripts: HashSet<ScriptBuf> =
-            revealed_addresses(&wallet, KeychainKind::Internal, network)
+            revealed_addresses(w, KeychainKind::Internal, network)
                 .map(|addr| addr.script_pubkey())
                 .collect();
 
         // ── 1. Fetch full transactions ────────────────────────────────────────
         let mut tx_cache: HashMap<Txid, Transaction> = HashMap::new();
 
-        for wallet_tx in wallet.transactions() {
+        for wallet_tx in w.transactions() {
             let txid = wallet_tx.tx_node.txid;
             if let Ok(Some(full_tx)) = backend.get_tx(txid).await {
                 tx_cache.insert(txid, full_tx);
@@ -177,13 +181,16 @@ impl WalletGraph {
                 None => continue,
             };
 
+            // Re-borrow the wallet for each iteration (no long-lived borrow).
+            let w: &Wallet = wallet.as_wallet();
+
             // Outputs
             let outputs: Vec<OutputInfo> = tx
                 .output
                 .iter()
                 .map(|out| {
                     let addr = Address::from_script(&out.script_pubkey, network).ok();
-                    let is_ours = wallet.is_mine(out.script_pubkey.clone());
+                    let is_ours = w.is_mine(out.script_pubkey.clone());
                     let is_change =
                         is_ours && internal_scripts.contains(&out.script_pubkey);
                     OutputInfo {
@@ -208,7 +215,7 @@ impl WalletGraph {
                         if let Some(parent_out) = parent_tx.output.get(vout) {
                             let addr =
                                 Address::from_script(&parent_out.script_pubkey, network).ok();
-                            let is_ours = wallet.is_mine(parent_out.script_pubkey.clone());
+                            let is_ours = w.is_mine(parent_out.script_pubkey.clone());
                             return InputInfo {
                                 address: addr,
                                 script: parent_out.script_pubkey.clone(),
@@ -272,25 +279,23 @@ impl WalletGraph {
 
 impl GraphView for WalletGraph {
     fn our_addresses(&self) -> Vec<Address> {
-        let mut addrs: Vec<(u32, Address)> = Vec::new();
+        let w = self.wallet.as_wallet();
+        let mut addrs: Vec<Address> = Vec::new();
 
-        for addr in revealed_addresses(&self.wallet, KeychainKind::External, self.network) {
-            // We don't have index here directly; use position in the iterator as a
-            // proxy. revealed_addresses yields in ascending derivation-index order.
-            addrs.push((addrs.len() as u32, addr));
+        for addr in revealed_addresses(w, KeychainKind::External, self.network) {
+            addrs.push(addr);
         }
-        let ext_len = addrs.len() as u32;
 
-        for addr in revealed_addresses(&self.wallet, KeychainKind::Internal, self.network) {
-            addrs.push((ext_len + addrs.len() as u32 - ext_len, addr));
+        for addr in revealed_addresses(w, KeychainKind::Internal, self.network) {
+            addrs.push(addr);
         }
 
         // Already in order (external first, then internal), no need to re-sort.
-        addrs.into_iter().map(|(_, a)| a).collect()
+        addrs
     }
 
     fn our_txids(&self) -> Vec<Txid> {
-        let mut txs: Vec<_> = self.wallet.transactions().collect();
+        let mut txs: Vec<_> = self.wallet.as_wallet().transactions().collect();
 
         txs.sort_by(|a, b| {
             let key_a = match &a.chain_position {
@@ -308,7 +313,7 @@ impl GraphView for WalletGraph {
     }
 
     fn is_ours(&self, script: &Script) -> bool {
-        self.wallet.is_mine(script.to_owned().into())
+        self.wallet.as_wallet().is_mine(script.to_owned().into())
     }
 
     fn is_change(&self, script: &Script) -> bool {
@@ -333,9 +338,9 @@ impl GraphView for WalletGraph {
     }
 
     fn utxos(&self) -> Vec<UtxoInfo> {
-        let tip = self.wallet.latest_checkpoint().height();
-        self.wallet
-            .list_unspent()
+        let w = self.wallet.as_wallet();
+        let tip = w.latest_checkpoint().height();
+        w.list_unspent()
             .map(|utxo| {
                 let addr = Address::from_script(&utxo.txout.script_pubkey, self.network).ok();
                 let confs = match utxo.chain_position {
@@ -358,8 +363,9 @@ impl GraphView for WalletGraph {
     }
 
     fn confirmations(&self, txid: Txid) -> Option<u32> {
-        let wallet_tx = self.wallet.get_tx(txid)?;
-        let tip_height = self.wallet.latest_checkpoint().height();
+        let w = self.wallet.as_wallet();
+        let wallet_tx = w.get_tx(txid)?;
+        let tip_height = w.latest_checkpoint().height();
         match wallet_tx.chain_position {
             ChainPosition::Confirmed { anchor, .. } => {
                 let conf_height = anchor.block_id.height;
