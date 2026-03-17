@@ -240,6 +240,7 @@ html, body {
 
 textarea.descriptor-input,
 input[type="text"].form-input,
+input[type="password"].form-input,
 select.form-select {
   width: 100%;
   padding: 0.65rem 0.9rem;
@@ -266,6 +267,7 @@ textarea.descriptor-input::placeholder {
 
 textarea.descriptor-input:focus,
 input[type="text"].form-input:focus,
+input[type="password"].form-input:focus,
 select.form-select:focus {
   border-color: var(--accent);
   box-shadow: var(--shadow-focus);

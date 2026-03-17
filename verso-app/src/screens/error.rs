@@ -2,8 +2,13 @@ use crate::state::Screen;
 use dioxus::prelude::*;
 
 #[component]
-pub fn ErrorView(screen: Signal<Screen>, scan_error: Signal<Option<String>>) -> Element {
+pub fn ErrorView(
+    screen: Signal<Screen>,
+    scan_error: Signal<Option<String>>,
+    log: Signal<Vec<String>>,
+) -> Element {
     let error_msg = scan_error().unwrap_or_else(|| "Unknown error".to_string());
+    let lines = log.read();
 
     let hint = error_hint(&error_msg);
 
@@ -17,6 +22,17 @@ pub fn ErrorView(screen: Signal<Screen>, scan_error: Signal<Option<String>>) -> 
 
             if !hint.is_empty() {
                 p { class: "error-hint", "{hint}" }
+            }
+
+            if !lines.is_empty() {
+                div { class: "error-log-wrap",
+                    p { class: "error-log-title", "Recent scan log" }
+                    div { class: "error-log",
+                        for line in lines.iter() {
+                            div { class: "log-line", "{line}" }
+                        }
+                    }
+                }
             }
 
             div { class: "error-actions",

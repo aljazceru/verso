@@ -9,6 +9,7 @@ pub mod bitcoind;
 pub mod esplora;
 
 pub use bitcoind::BitcoindBackend;
+pub use bitcoind::test_bitcoind_connection;
 pub use esplora::EsploraBackend;
 
 #[async_trait]

@@ -36,6 +36,7 @@ fn app() -> Element {
     let descriptor = use_signal(String::new);
     let report = use_signal(|| Option::<verso_core::report::Report>::None);
     let scan_error = use_signal(|| Option::<String>::None);
+    let rpc_test_status = use_signal(|| Option::<String>::None);
     // Vec<String> log — pushed directly from the background task.
     // No use_effect middleman, so no message is ever dropped.
     let log: Signal<Vec<String>> = use_signal(Vec::new);
@@ -90,7 +91,7 @@ fn app() -> Element {
                 match screen() {
                     state::Screen::Input => rsx! {
                         screens::input::InputView {
-                            screen, descriptor, report, scan_error, log,
+                            screen, descriptor, report, scan_error, log, rpc_test_status,
                         }
                     },
                     state::Screen::Loading => rsx! {
@@ -102,7 +103,11 @@ fn app() -> Element {
                         screens::report::ReportView { screen, report }
                     },
                     state::Screen::Error => rsx! {
-                        screens::error::ErrorView { screen, scan_error }
+                        screens::error::ErrorView {
+                            screen,
+                            scan_error,
+                            log,
+                        }
                     },
                 }
             }

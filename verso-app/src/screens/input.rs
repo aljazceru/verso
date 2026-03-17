@@ -4,6 +4,25 @@ use dioxus::prelude::*;
 use verso_core::config::{BackendConfig, BitcoindAuth, ScanConfig};
 use std::path::PathBuf;
 
+const MAX_LOG_LINES: usize = 250;
+
+fn push_log_line(log: &mut Vec<String>, line: String) {
+    if line.starts_with("[sync]") {
+        if let Some(last) = log.last_mut() {
+            if last.starts_with("[sync]") {
+                *last = line;
+                return;
+            }
+        }
+    }
+
+    log.push(line);
+    if log.len() > MAX_LOG_LINES {
+        let overflow = log.len() - MAX_LOG_LINES;
+        log.drain(0..overflow);
+    }
+}
+
 #[component]
 pub fn InputView(
     screen: Signal<Screen>,
@@ -11,6 +30,7 @@ pub fn InputView(
     report: Signal<Option<verso_core::report::Report>>,
     scan_error: Signal<Option<String>>,
     log: Signal<Vec<String>>,
+    rpc_test_status: Signal<Option<String>>,
 ) -> Element {
     let mut network = use_signal(|| "mainnet".to_string());
     let mut backend_type = use_signal(|| "bitcoind".to_string());
@@ -19,6 +39,7 @@ pub fn InputView(
     let mut bitcoind_cookie = use_signal(String::new);
     let mut bitcoind_user = use_signal(String::new);
     let mut bitcoind_pass = use_signal(String::new);
+    let mut rpc_test_status = rpc_test_status;
 
     let on_submit = move |_| {
         let desc_val = descriptor();
@@ -113,6 +134,7 @@ pub fn InputView(
             }
             BackendConfig::Esplora { url }
         };
+        let descriptor_count = descs.len();
 
         let (progress_tx, mut progress_rx) =
             tokio::sync::mpsc::unbounded_channel::<verso_core::config::ScanProgress>();
@@ -129,11 +151,36 @@ pub fn InputView(
             progress_tx: Some(progress_tx),
         };
 
+        let backend_diag = match &config.backend {
+            BackendConfig::Bitcoind { url, auth } => match auth {
+                BitcoindAuth::Cookie(_) => {
+                    format!("bitcoind(auth=cookie file, url={url})")
+                }
+                BitcoindAuth::UserPass { user, .. } => {
+                    format!("bitcoind(auth=user/pass: {user}, url={url})")
+                }
+            },
+            BackendConfig::Esplora { url } => {
+                format!("esplora(url={url})")
+            }
+        };
+
         // Reset prior results before switching screens.
         log.write().clear();
         report.set(None);
         scan_error.set(None);
         screen.set(Screen::Loading);
+        {
+            let mut lines = log.write();
+            push_log_line(
+                &mut lines,
+                format!(
+                    "[init] starting scan: network={:?}, descriptors={}",
+                    network_parsed, descriptor_count
+                ),
+            );
+            push_log_line(&mut lines, format!("[init] backend={backend_diag}"));
+        }
 
         let mut screen_s = screen;
         let mut report_s = report;
@@ -143,35 +190,62 @@ pub fn InputView(
         // This task must outlive InputView because the component is dropped as
         // soon as we switch to Loading.
         spawn_forever(async move {
-            let scan_fut = verso_core::scan(config);
-            tokio::pin!(scan_fut);
+            let scan_task = tokio::task::spawn_blocking(move || {
+                let runtime = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .map_err(|err| {
+                        verso_core::VersoError::InvalidConfig(format!(
+                            "failed to create scan runtime: {err}"
+                        ))
+                    })?;
 
-            // Drive the scan and drain progress messages as they arrive.
-            // Each push to log_s immediately updates the LoadingView because
-            // that component reads log_s during render — no use_effect needed.
-            let result = loop {
-                tokio::select! {
-                    result = &mut scan_fut => break result,
-                    msg = progress_rx.recv() => {
-                        if let Some(p) = msg {
-                            log_s.write().push(format!("[{}] {}", p.phase, p.message));
-                        }
-                    }
-                }
-            };
+                runtime.block_on(verso_core::scan(config))
+            });
 
-            // Drain any messages that arrived between the last yield and completion.
-            while let Ok(p) = progress_rx.try_recv() {
-                log_s.write().push(format!("[{}] {}", p.phase, p.message));
+            while let Some(p) = progress_rx.recv().await {
+                let mut lines = log_s.write();
+                push_log_line(&mut lines, format!("[{}] {}", p.phase, p.message));
             }
 
+            let result = scan_task.await;
+
             match result {
-                Ok(r) => {
+                Ok(Ok(r)) => {
                     report_s.set(Some(r));
                     screen_s.set(Screen::Report);
                 }
-                Err(e) => {
+                Ok(Err(e)) => {
                     error_s.set(Some(e.to_string()));
+                    screen_s.set(Screen::Error);
+                }
+                Err(join_err) => {
+                    let msg = if join_err.is_panic() {
+                        let payload = join_err.into_panic();
+                        if let Some(message) = payload.downcast_ref::<&'static str>() {
+                            let rendered = format!("Scan task panicked: {message}");
+                            let mut lines = log_s.write();
+                            push_log_line(&mut lines, format!("[fatal] {rendered}"));
+                            rendered
+                        } else if let Some(message) = payload.downcast_ref::<String>() {
+                            let rendered = format!("Scan task panicked: {message}");
+                            let mut lines = log_s.write();
+                            push_log_line(&mut lines, format!("[fatal] {rendered}"));
+                            rendered
+                        } else {
+                            let rendered = "Scan task panicked: unknown panic payload".to_string();
+                            let mut lines = log_s.write();
+                            push_log_line(&mut lines, format!("[fatal] {rendered}"));
+                            rendered
+                        }
+                    } else {
+                        let rendered = format!("Scan task failed: {join_err}");
+                        let mut lines = log_s.write();
+                        push_log_line(&mut lines, format!("[fatal] {rendered}"));
+                        rendered
+                    };
+
+                    error_s.set(Some(msg));
                     screen_s.set(Screen::Error);
                 }
             }
@@ -179,6 +253,69 @@ pub fn InputView(
     };
 
     let can_submit = !descriptor().trim().is_empty();
+
+    let on_test_rpc = move |_| {
+        if backend_type() != "bitcoind" {
+            return;
+        }
+
+        let rpc_url = bitcoind_url().trim().to_string();
+        if rpc_url.is_empty() {
+            rpc_test_status.set(Some("Bitcoind RPC URL cannot be empty.".into()));
+            return;
+        }
+
+        let user = bitcoind_user().trim().to_string();
+        let pass = bitcoind_pass().trim().to_string();
+        let has_cookie = !bitcoind_cookie().trim().is_empty();
+        let has_user = !user.is_empty();
+        let has_pass = !pass.is_empty();
+
+        if has_cookie && (has_user || has_pass) {
+            rpc_test_status.set(Some(
+                "Choose exactly one auth method for testing: cookie file OR username/password."
+                    .into(),
+            ));
+            return;
+        }
+
+        if !(has_cookie || (has_user && has_pass)) {
+            rpc_test_status.set(Some(
+                "Bitcoind test requires either cookie file, or both username and password."
+                    .into(),
+            ));
+            return;
+        }
+
+        let auth = if has_cookie {
+            BitcoindAuth::Cookie(PathBuf::from(bitcoind_cookie().trim()))
+        } else {
+            BitcoindAuth::UserPass { user, pass }
+        };
+
+        let mut rpc_test_status = rpc_test_status;
+        rpc_test_status.set(Some("Testing Bitcoin RPC connection...".into()));
+
+        spawn(async move {
+            let test_result = tokio::task::spawn_blocking(move || {
+                verso_core::backend::test_bitcoind_connection(&rpc_url, &auth)
+            })
+            .await;
+
+            match test_result {
+                Ok(Ok(msg)) => rpc_test_status.set(Some(format!("✅ {msg}"))),
+                Ok(Err(err)) => rpc_test_status.set(Some(format!("❌ {err}"))),
+                Err(join_err) => {
+                    let msg = if join_err.is_panic() {
+                        "❌ RPC test panicked unexpectedly".to_string()
+                    } else {
+                        format!("❌ RPC test failed: {join_err}")
+                    };
+                    rpc_test_status.set(Some(msg))
+                }
+            }
+        });
+    };
 
     rsx! {
         div { class: "input-view",
@@ -272,6 +409,14 @@ pub fn InputView(
                         value: bitcoind_pass(),
                         oninput: move |e| bitcoind_pass.set(e.value()),
                     }
+                }
+                button {
+                    class: "btn-secondary",
+                    onclick: on_test_rpc,
+                    "Test RPC Connection"
+                }
+                if let Some(status) = rpc_test_status() {
+                    p { class: "form-hint", "{status}" }
                 }
                 p { class: "form-hint",
                     "Use either the cookie file OR username/password for authentication."
