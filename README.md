@@ -1,6 +1,7 @@
 # verso
 
-Bitcoin wallet privacy analyzer. Given wallet descriptors, syncs transaction history via Bitcoin Core RPC or Esplora and runs 12 heuristic detectors to find privacy leaks.
+Bitcoin wallet privacy analyzer. Given wallet descriptors, syncs transaction history via Bitcoin Core RPC or Esplora and runs 12 heuristic detectors to find privacy leaks. 
+Currently available both as GUI or CLI, mobile versions might be available soon. 
 
 ## Crates
 
