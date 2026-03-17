@@ -1,1 +1,28 @@
-target/
+# Rust
+/target/
+**/target/
+
+# Build artifacts
+**/*.d
+**/*.rlib
+**/*.rmeta
+*.profraw
+*.profdata
+*.log
+*.tmp
+
+# Environment/config
+.env
+.env.*
+
+# Editor / OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local cache
+.cargo/

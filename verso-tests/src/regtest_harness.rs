@@ -6,9 +6,9 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use bitcoin::{Address, Amount, Network, Txid};
-use bitcoind::{BitcoinD, Conf};
-use bitcoincore_rpc::{Auth, Client, RpcApi};
 use bitcoincore_rpc::json::{AddressType, CreateRawTransactionInput};
+use bitcoincore_rpc::{Auth, Client, RpcApi};
+use bitcoind::{BitcoinD, Conf};
 
 use verso_core::config::{BackendConfig, BitcoindAuth, ScanConfig};
 use verso_core::report::Report;
@@ -31,20 +31,24 @@ impl RegtestHarness {
     pub fn new() -> Self {
         let mut conf = Conf::default();
         // Enable descriptor wallets (Bitcoin Core >= 22).
-        conf.args = vec!["-regtest", "-fallbackfee=0.0001", "-deprecatedrpc=create_bdb", "-txindex=1"];
+        conf.args = vec![
+            "-regtest",
+            "-fallbackfee=0.0001",
+            "-deprecatedrpc=create_bdb",
+            "-txindex=1",
+        ];
 
-        let bitcoind =
-            BitcoinD::with_conf(bitcoind::exe_path().unwrap(), &conf).unwrap();
+        let bitcoind = BitcoinD::with_conf(bitcoind::exe_path().unwrap(), &conf).unwrap();
 
         let cookie = bitcoind.params.cookie_file.clone();
 
-        let client = Client::new(
-            &bitcoind.rpc_url(),
-            Auth::CookieFile(cookie.clone()),
-        )
-        .unwrap();
+        let client = Client::new(&bitcoind.rpc_url(), Auth::CookieFile(cookie.clone())).unwrap();
 
-        let harness = RegtestHarness { bitcoind, client, cookie };
+        let harness = RegtestHarness {
+            bitcoind,
+            client,
+            cookie,
+        };
 
         // Create the default "miner" wallet that will fund everything.
         harness.create_wallet("miner");
@@ -128,12 +132,8 @@ impl RegtestHarness {
     /// Tops up from the miner wallet if needed.
     pub fn ensure_funds(&self, wallet_name: &str, min_btc: f64) {
         let wc = self.wallet_client(wallet_name);
-        let info = wc
-            .call::<serde_json::Value>("getbalances", &[])
-            .unwrap();
-        let bal = info["mine"]["trusted"]
-            .as_f64()
-            .unwrap_or(0.0);
+        let info = wc.call::<serde_json::Value>("getbalances", &[]).unwrap();
+        let bal = info["mine"]["trusted"].as_f64().unwrap_or(0.0);
         if bal < min_btc {
             let addr = self.new_address(wallet_name);
             self.send_from("miner", &addr, min_btc + 0.5);
@@ -149,17 +149,18 @@ impl RegtestHarness {
             .send_to_address(
                 to_addr,
                 Amount::from_btc(amount_btc).unwrap(),
-                None, None, None, None, None, None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
             )
             .unwrap()
     }
 
     /// sendmany from `from_wallet`: map of address → amount_btc.
-    pub fn send_many(
-        &self,
-        from_wallet: &str,
-        outputs: &HashMap<String, f64>,
-    ) -> Txid {
+    pub fn send_many(&self, from_wallet: &str, outputs: &HashMap<String, f64>) -> Txid {
         // Build a JSON object {addr: amount, …}
         let amounts: serde_json::Value = outputs
             .iter()
@@ -167,10 +168,7 @@ impl RegtestHarness {
             .collect::<serde_json::Map<_, _>>()
             .into();
         self.wallet_client(from_wallet)
-            .call::<String>(
-                "sendmany",
-                &[serde_json::json!(""), amounts],
-            )
+            .call::<String>("sendmany", &[serde_json::json!(""), amounts])
             .unwrap()
             .parse()
             .unwrap()
@@ -201,8 +199,7 @@ impl RegtestHarness {
         let signed = wc
             .sign_raw_transaction_with_wallet(raw_hex, None, None)
             .unwrap();
-        wc.send_raw_transaction(signed.hex.as_slice())
-            .unwrap()
+        wc.send_raw_transaction(signed.hex.as_slice()).unwrap()
     }
 
     // ─── Descriptor extraction ───────────────────────────────────────────────
@@ -212,7 +209,8 @@ impl RegtestHarness {
     pub fn get_descriptors(&self, wallet_name: &str) -> Vec<String> {
         // Pass `false` to get xpub descriptors (no private keys).
         // BDK's scanner only needs public keys to derive addresses and track txs.
-        let result = self.wallet_client(wallet_name)
+        let result = self
+            .wallet_client(wallet_name)
             .call::<serde_json::Value>("listdescriptors", &[serde_json::json!(false)])
             .unwrap();
 

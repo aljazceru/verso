@@ -30,6 +30,10 @@ impl Detector for ExchangeOriginDetector {
                 None => continue,
             };
 
+            if tx.input.is_empty() || tx.input.iter().all(|inp| inp.previous_output.is_null()) {
+                continue;
+            }
+
             // Check if we receive in this tx (have outputs, no inputs that are ours)
             let inputs = graph.input_addresses(txid);
             let our_inputs: Vec<_> = inputs.iter().filter(|i| i.is_ours).collect();
@@ -53,10 +57,8 @@ impl Detector for ExchangeOriginDetector {
             }
 
             // Signal 2: Unique recipient address count >= 5
-            let unique_addrs: HashSet<_> = outputs
-                .iter()
-                .filter_map(|o| o.address.as_ref())
-                .collect();
+            let unique_addrs: HashSet<_> =
+                outputs.iter().filter_map(|o| o.address.as_ref()).collect();
             if unique_addrs.len() >= BATCH_THRESHOLD {
                 signals.push("many_recipients".to_string());
             }
@@ -211,9 +213,10 @@ mod tests {
 
         // Build a receive tx that has our addr as output 0, plus 4 more outputs
         let ext_addrs: Vec<Address> = (0..4).map(|_| p2tr_addr()).collect();
-        let all_outputs: Vec<(Address, u64, bool)> = std::iter::once((our_addr.clone(), 100_000, false))
-            .chain(ext_addrs.iter().map(|a| (a.clone(), 100_000, false)))
-            .collect();
+        let all_outputs: Vec<(Address, u64, bool)> =
+            std::iter::once((our_addr.clone(), 100_000, false))
+                .chain(ext_addrs.iter().map(|a| (a.clone(), 100_000, false)))
+                .collect();
 
         // Use with_spend_tx but with empty inputs to simulate a pure receive from exchange
         // (no "ours" in inputs since we don't register the ext input addr)
@@ -246,9 +249,10 @@ mod tests {
         let txid = make_txid(10);
 
         let ext_addrs: Vec<Address> = (0..5).map(|_| p2tr_addr()).collect();
-        let all_outputs: Vec<(Address, u64, bool)> = std::iter::once((our_addr.clone(), 100_000, false))
-            .chain(ext_addrs.iter().map(|a| (a.clone(), 100_000, false)))
-            .collect();
+        let all_outputs: Vec<(Address, u64, bool)> =
+            std::iter::once((our_addr.clone(), 100_000, false))
+                .chain(ext_addrs.iter().map(|a| (a.clone(), 100_000, false)))
+                .collect();
 
         // Empty input list means our_inputs is empty (we are receiver, not sender).
         let graph = MockGraphBuilder::new()

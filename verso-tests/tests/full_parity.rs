@@ -1,6 +1,6 @@
+use verso_core::report::FindingType;
 use verso_tests::regtest_harness::RegtestHarness;
 use verso_tests::scenarios;
-use verso_core::report::FindingType;
 
 #[tokio::test]
 async fn test_full_parity_all_detectors_fire() {
@@ -36,7 +36,10 @@ async fn test_full_parity_all_detectors_fire() {
     let report = verso_core::scan(config).await.unwrap();
 
     // The wallet should not be clean
-    assert!(!report.summary.clean, "Expected non-clean wallet in full parity test");
+    assert!(
+        !report.summary.clean,
+        "Expected non-clean wallet in full parity test"
+    );
 
     // Should have many findings across all scenarios
     assert!(
@@ -50,21 +53,27 @@ async fn test_full_parity_all_detectors_fire() {
         report.findings.iter().map(|f| &f.finding_type).collect();
     let warning_types: Vec<&FindingType> =
         report.warnings.iter().map(|f| &f.finding_type).collect();
-    let all_types: Vec<&FindingType> =
-        finding_types.iter().chain(warning_types.iter()).copied().collect();
+    let all_types: Vec<&FindingType> = finding_types
+        .iter()
+        .chain(warning_types.iter())
+        .copied()
+        .collect();
 
     // Assert key finding types are present
     assert!(
         all_types.contains(&&FindingType::AddressReuse),
-        "Missing AddressReuse; all types: {:?}", all_types
+        "Missing AddressReuse; all types: {:?}",
+        all_types
     );
     assert!(
         all_types.contains(&&FindingType::Cioh),
-        "Missing Cioh; all types: {:?}", all_types
+        "Missing Cioh; all types: {:?}",
+        all_types
     );
     assert!(
         all_types.contains(&&FindingType::Dust) || all_types.contains(&&FindingType::DustSpending),
-        "Missing Dust or DustSpending; all types: {:?}", all_types
+        "Missing Dust or DustSpending; all types: {:?}",
+        all_types
     );
 
     // UtxoAgeSpread requires at least 2 unspent UTXOs with >= 10 block confirmation

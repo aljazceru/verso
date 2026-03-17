@@ -11,5 +11,3 @@ tokio = { version = "1", features = ["full"] }
 serde_json = "1"
 bitcoin = "0.32"
 
-[dev-dependencies]
-verso-cli = { path = "../verso-cli" }

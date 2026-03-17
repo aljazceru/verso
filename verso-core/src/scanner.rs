@@ -3,8 +3,8 @@ use std::str::FromStr;
 use bdk_sqlite::Store;
 use bdk_wallet::{CreateParams, KeychainKind, PersistedWallet, Wallet};
 use bitcoin::Network;
-use miniscript::Descriptor;
 use miniscript::descriptor::DescriptorPublicKey;
+use miniscript::Descriptor;
 
 use crate::config::ScanConfig;
 use crate::error::VersoError;
@@ -45,13 +45,11 @@ impl WalletKind {
     pub async fn persist_if_needed(&mut self) -> Result<(), VersoError> {
         match self {
             WalletKind::Ephemeral(_) => Ok(()),
-            WalletKind::Persisted(wallet, store) => {
-                wallet
-                    .persist_async(store)
-                    .await
-                    .map(|_| ())
-                    .map_err(|e| VersoError::Storage(e.to_string()))
-            }
+            WalletKind::Persisted(wallet, store) => wallet
+                .persist_async(store)
+                .await
+                .map(|_| ())
+                .map_err(|e| VersoError::Storage(e.to_string())),
         }
     }
 }
@@ -94,13 +92,16 @@ impl Scanner {
                 validate_descriptor(&internal, network)?;
                 Ok((external, internal))
             }
-            [ext, int, ..] => {
+            [ext, int] => {
                 let ext = auto_wrap_key(ext.trim())?;
                 let int = auto_wrap_key(int.trim())?;
                 validate_descriptor(&ext, network)?;
                 validate_descriptor(&int, network)?;
                 Ok((ext, int))
             }
+            _ => Err(VersoError::DescriptorParse(
+                "at most two descriptors are supported (external and internal)".into(),
+            )),
         }
     }
 
@@ -120,11 +121,9 @@ impl Scanner {
             WalletKind::Ephemeral(wallet)
         } else {
             let data_dir = config.data_dir.as_deref().ok_or_else(|| {
-                VersoError::InvalidConfig(
-                    "data_dir must be set when ephemeral is false".into(),
-                )
+                VersoError::InvalidConfig("data_dir must be set when ephemeral is false".into())
             })?;
-            let db_path = storage::resolve_db_path(data_dir, &ext, config.network);
+            let db_path = storage::resolve_db_path(data_dir, &ext, &int, config.network);
             let (wallet, store) =
                 storage::open_wallet(&ext, &int, config.network, &db_path).await?;
             WalletKind::Persisted(wallet, store)
@@ -135,15 +134,13 @@ impl Scanner {
         let limit = config.derivation_limit;
         {
             let w = wallet_kind.as_mut_wallet();
-            let _ = w
-                .reveal_addresses_to(KeychainKind::External, limit)
-                .count();
-            let _ = w
-                .reveal_addresses_to(KeychainKind::Internal, limit)
-                .count();
+            let _ = w.reveal_addresses_to(KeychainKind::External, limit).count();
+            let _ = w.reveal_addresses_to(KeychainKind::Internal, limit).count();
         }
 
-        Ok(Scanner { wallet: wallet_kind })
+        Ok(Scanner {
+            wallet: wallet_kind,
+        })
     }
 }
 

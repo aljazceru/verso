@@ -52,12 +52,19 @@ impl Detector for AddressReuseDetector {
                     let mut sorted_txids: Vec<Txid> = txids.iter().copied().collect();
                     sorted_txids.sort_by_key(|t| t.to_string());
 
-                    let txid_objects: Vec<serde_json::Value> = sorted_txids.iter().map(|txid| {
-                        let confs = graph.confirmations(*txid).unwrap_or(0);
-                        serde_json::json!({"txid": txid.to_string(), "confirmations": confs})
-                    }).collect();
+                    let txid_objects: Vec<serde_json::Value> = sorted_txids
+                        .iter()
+                        .map(|txid| {
+                            let confs = graph.confirmations(*txid).unwrap_or(0);
+                            serde_json::json!({"txid": txid.to_string(), "confirmations": confs})
+                        })
+                        .collect();
 
-                    let role = if graph.is_change(&addr.script_pubkey()) { "change" } else { "receive" };
+                    let role = if graph.is_change(&addr.script_pubkey()) {
+                        "change"
+                    } else {
+                        "receive"
+                    };
 
                     findings.push(Finding {
                         finding_type: FindingType::AddressReuse,
@@ -132,10 +139,8 @@ mod tests {
     #[test]
     fn test_detects_reuse_when_same_address_in_two_txids() {
         let addr = regtest_p2tr_address();
-        let txid1 =
-            make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-        let txid2 =
-            make_txid("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+        let txid1 = make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let txid2 = make_txid("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
 
         let graph = MockGraphBuilder::new()
             .with_address(addr.clone())
@@ -157,8 +162,7 @@ mod tests {
     #[test]
     fn test_no_reuse_when_single_receive() {
         let addr = regtest_p2tr_address();
-        let txid1 =
-            make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let txid1 = make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 
         let graph = MockGraphBuilder::new()
             .with_address(addr.clone())
@@ -174,10 +178,8 @@ mod tests {
     fn test_no_reuse_when_different_addresses() {
         let addr1 = regtest_p2tr_address();
         let addr2 = regtest_p2tr_address();
-        let txid1 =
-            make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-        let txid2 =
-            make_txid("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+        let txid1 = make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let txid2 = make_txid("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
 
         let graph = MockGraphBuilder::new()
             .with_address(addr1.clone())
@@ -188,18 +190,18 @@ mod tests {
 
         let config = test_config();
         let findings = AddressReuseDetector.detect(&graph, &config);
-        assert!(findings.is_empty(), "Different addresses should not trigger reuse finding");
+        assert!(
+            findings.is_empty(),
+            "Different addresses should not trigger reuse finding"
+        );
     }
 
     #[test]
     fn test_reuse_details_contain_address_and_txids() {
         let addr = regtest_p2tr_address();
-        let txid1 =
-            make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-        let txid2 =
-            make_txid("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
-        let txid3 =
-            make_txid("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
+        let txid1 = make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let txid2 = make_txid("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+        let txid3 = make_txid("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
 
         let graph = MockGraphBuilder::new()
             .with_address(addr.clone())

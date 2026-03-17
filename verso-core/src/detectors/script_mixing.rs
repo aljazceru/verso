@@ -48,10 +48,7 @@ impl Detector for ScriptMixingDetector {
             }
 
             if types.len() >= 2 {
-                let mut type_strs: Vec<String> = types
-                    .iter()
-                    .map(|t| format!("{:?}", t))
-                    .collect();
+                let mut type_strs: Vec<String> = types.iter().map(|t| format!("{:?}", t)).collect();
                 type_strs.sort();
 
                 findings.push(Finding {
@@ -193,7 +190,10 @@ mod tests {
 
         let config = test_config();
         let findings = ScriptMixingDetector.detect(&graph, &config);
-        assert!(findings.is_empty(), "Same script type inputs should not trigger finding");
+        assert!(
+            findings.is_empty(),
+            "Same script type inputs should not trigger finding"
+        );
     }
 
     #[test]

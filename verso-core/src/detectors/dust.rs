@@ -39,7 +39,11 @@ impl Detector for DustDetector {
                 };
 
                 let txid_str = utxo.txid.to_string();
-                let addr_str = utxo.address.as_ref().map(|a| a.to_string()).unwrap_or_default();
+                let addr_str = utxo
+                    .address
+                    .as_ref()
+                    .map(|a| a.to_string())
+                    .unwrap_or_default();
                 unspent_dust_keys.insert((txid_str.clone(), addr_str));
 
                 findings.push(Finding {
@@ -74,7 +78,11 @@ impl Detector for DustDetector {
             for (vout_idx, out) in outputs.iter().enumerate() {
                 if out.is_ours && out.value_sats <= DUST_SATS {
                     let txid_str = txid.to_string();
-                    let addr_str = out.address.as_ref().map(|a| a.to_string()).unwrap_or_default();
+                    let addr_str = out
+                        .address
+                        .as_ref()
+                        .map(|a| a.to_string())
+                        .unwrap_or_default();
                     let key = (txid_str.clone(), addr_str.clone());
 
                     // Skip if already reported as an unspent UTXO
@@ -156,8 +164,7 @@ mod tests {
     #[test]
     fn test_detects_strict_dust_utxo_as_high() {
         let addr = regtest_p2tr_address();
-        let txid =
-            make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let txid = make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 
         let graph = MockGraphBuilder::new()
             .with_address(addr.clone())
@@ -168,7 +175,10 @@ mod tests {
         let findings = DustDetector.detect(&graph, &config);
 
         assert!(!findings.is_empty());
-        let f = findings.iter().find(|f| f.severity == Severity::High).unwrap();
+        let f = findings
+            .iter()
+            .find(|f| f.severity == Severity::High)
+            .unwrap();
         assert_eq!(f.finding_type, FindingType::Dust);
         assert_eq!(f.details["amount_sats"].as_u64().unwrap(), 546);
     }
@@ -176,8 +186,7 @@ mod tests {
     #[test]
     fn test_detects_dust_class_utxo_as_medium() {
         let addr = regtest_p2tr_address();
-        let txid =
-            make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let txid = make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 
         let graph = MockGraphBuilder::new()
             .with_address(addr.clone())
@@ -188,7 +197,10 @@ mod tests {
         let findings = DustDetector.detect(&graph, &config);
 
         assert!(!findings.is_empty());
-        let f = findings.iter().find(|f| f.severity == Severity::Medium).unwrap();
+        let f = findings
+            .iter()
+            .find(|f| f.severity == Severity::Medium)
+            .unwrap();
         assert_eq!(f.finding_type, FindingType::Dust);
         assert_eq!(f.details["amount_sats"].as_u64().unwrap(), 800);
     }
@@ -196,8 +208,7 @@ mod tests {
     #[test]
     fn test_no_dust_finding_for_normal_utxo() {
         let addr = regtest_p2tr_address();
-        let txid =
-            make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let txid = make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 
         let graph = MockGraphBuilder::new()
             .with_address(addr.clone())
@@ -212,8 +223,7 @@ mod tests {
     #[test]
     fn test_detects_historical_dust_output_as_low() {
         let addr = regtest_p2tr_address();
-        let txid =
-            make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let txid = make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 
         // Receive a dust amount in a tx but don't add it as a UTXO (simulates spent dust)
         let graph = MockGraphBuilder::new()
@@ -226,16 +236,21 @@ mod tests {
         let findings = DustDetector.detect(&graph, &config);
 
         assert!(!findings.is_empty(), "Expected historical dust finding");
-        let low_findings: Vec<_> = findings.iter().filter(|f| f.severity == Severity::Low).collect();
-        assert!(!low_findings.is_empty(), "Historical dust should be Low severity");
+        let low_findings: Vec<_> = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Low)
+            .collect();
+        assert!(
+            !low_findings.is_empty(),
+            "Historical dust should be Low severity"
+        );
         assert_eq!(low_findings[0].details["status"].as_str().unwrap(), "spent");
     }
 
     #[test]
     fn test_utxo_boundary_at_1000_included() {
         let addr = regtest_p2tr_address();
-        let txid =
-            make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let txid = make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 
         let graph = MockGraphBuilder::new()
             .with_address(addr.clone())
@@ -244,15 +259,17 @@ mod tests {
 
         let config = test_config();
         let findings = DustDetector.detect(&graph, &config);
-        assert!(!findings.is_empty(), "1000 sats is dust boundary — should be flagged");
+        assert!(
+            !findings.is_empty(),
+            "1000 sats is dust boundary — should be flagged"
+        );
         assert_eq!(findings[0].severity, Severity::Medium);
     }
 
     #[test]
     fn test_utxo_above_dust_not_flagged() {
         let addr = regtest_p2tr_address();
-        let txid =
-            make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let txid = make_txid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 
         let graph = MockGraphBuilder::new()
             .with_address(addr.clone())
@@ -261,6 +278,9 @@ mod tests {
 
         let config = test_config();
         let findings = DustDetector.detect(&graph, &config);
-        assert!(findings.is_empty(), "1001 sats is above dust — should not be flagged");
+        assert!(
+            findings.is_empty(),
+            "1001 sats is above dust — should not be flagged"
+        );
     }
 }

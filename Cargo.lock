@@ -5475,6 +5475,7 @@ version = "0.1.0"
 dependencies = [
  "bitcoin",
  "dioxus",
+ "dioxus-desktop",
  "serde_json",
  "tokio",
  "verso-core",
@@ -5521,7 +5522,6 @@ dependencies = [
  "bitcoind",
  "serde_json",
  "tokio",
- "verso-cli",
  "verso-core",
 ]
 

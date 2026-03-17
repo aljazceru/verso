@@ -1,6 +1,6 @@
+use crate::components::{DetailsPanel, SeverityBadge};
 use dioxus::prelude::*;
 use verso_core::report::{Finding, Severity};
-use crate::components::{SeverityBadge, DetailsPanel};
 
 #[component]
 pub fn FindingCard(finding: Finding) -> Element {
@@ -8,9 +8,9 @@ pub fn FindingCard(finding: Finding) -> Element {
 
     let sev_class = match finding.severity {
         Severity::Critical => "finding-card sev-critical",
-        Severity::High     => "finding-card sev-high",
-        Severity::Medium   => "finding-card sev-medium",
-        Severity::Low      => "finding-card sev-low",
+        Severity::High => "finding-card sev-high",
+        Severity::Medium => "finding-card sev-medium",
+        Severity::Low => "finding-card sev-low",
     };
 
     let card_class = if *expanded.read() {

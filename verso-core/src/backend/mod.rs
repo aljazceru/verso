@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use bitcoin::{Transaction, Txid};
 use bdk_wallet::Wallet;
+use bitcoin::{Transaction, Txid};
 
 use crate::config::ScanProgress;
 use crate::error::VersoError;

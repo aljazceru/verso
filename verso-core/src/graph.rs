@@ -1,8 +1,10 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use bitcoin::{Address, AddressType, Amount, FeeRate, Network, Script, ScriptBuf, Transaction, Txid};
 use bdk_chain::ChainPosition;
 use bdk_wallet::{KeychainKind, Wallet};
+use bitcoin::{
+    Address, AddressType, Amount, FeeRate, Network, Script, ScriptBuf, Transaction, Txid,
+};
 
 use crate::backend::ChainBackend;
 use crate::error::VersoError;
@@ -158,13 +160,34 @@ impl WalletGraph {
                 .collect();
 
         // ── 1. Fetch full transactions ────────────────────────────────────────
+        // Start with wallet transactions and recursively fetch parent txs needed for
+        // input attribution, so detectors have complete ancestry context.
         let mut tx_cache: HashMap<Txid, Transaction> = HashMap::new();
+        let mut queued: VecDeque<Txid> = w.transactions().map(|wt| wt.tx_node.txid).collect();
+        let mut seen: HashSet<Txid> = HashSet::new();
 
-        for wallet_tx in w.transactions() {
-            let txid = wallet_tx.tx_node.txid;
-            if let Ok(Some(full_tx)) = backend.get_tx(txid).await {
-                tx_cache.insert(txid, full_tx);
+        while let Some(txid) = queued.pop_front() {
+            if !seen.insert(txid) {
+                continue;
             }
+
+            let full_tx = match backend.get_tx(txid).await {
+                Ok(Some(tx)) => tx,
+                Ok(None) => continue,
+                Err(err) => return Err(err),
+            };
+
+            let new_parents = full_tx
+                .input
+                .iter()
+                .map(|inp| inp.previous_output)
+                .filter(|outpoint| !outpoint.is_null())
+                .map(|outpoint| outpoint.txid)
+                .filter(|parent| !seen.contains(parent))
+                .collect::<Vec<_>>();
+
+            tx_cache.insert(txid, full_tx);
+            queued.extend(new_parents);
         }
 
         // ── 2. Resolve inputs and outputs ────────────────────────────────────
@@ -191,8 +214,7 @@ impl WalletGraph {
                 .map(|out| {
                     let addr = Address::from_script(&out.script_pubkey, network).ok();
                     let is_ours = w.is_mine(out.script_pubkey.clone());
-                    let is_change =
-                        is_ours && internal_scripts.contains(&out.script_pubkey);
+                    let is_change = is_ours && internal_scripts.contains(&out.script_pubkey);
                     OutputInfo {
                         address: addr,
                         script: out.script_pubkey.clone(),
@@ -313,11 +335,11 @@ impl GraphView for WalletGraph {
     }
 
     fn is_ours(&self, script: &Script) -> bool {
-        self.wallet.as_wallet().is_mine(script.to_owned().into())
+        self.wallet.as_wallet().is_mine(script.to_owned())
     }
 
     fn is_change(&self, script: &Script) -> bool {
-        let sbuf: ScriptBuf = script.to_owned().into();
+        let sbuf: ScriptBuf = script.to_owned();
         self.internal_scripts.contains(&sbuf)
     }
 
@@ -330,11 +352,17 @@ impl GraphView for WalletGraph {
     }
 
     fn input_addresses(&self, txid: Txid) -> &[InputInfo] {
-        self.input_cache.get(&txid).map(Vec::as_slice).unwrap_or(&[])
+        self.input_cache
+            .get(&txid)
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
     }
 
     fn output_addresses(&self, txid: Txid) -> &[OutputInfo] {
-        self.output_cache.get(&txid).map(Vec::as_slice).unwrap_or(&[])
+        self.output_cache
+            .get(&txid)
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
     }
 
     fn utxos(&self) -> Vec<UtxoInfo> {
@@ -410,14 +438,12 @@ impl GraphView for WalletGraph {
 fn revealed_addresses(
     wallet: &Wallet,
     keychain: KeychainKind,
-    network: Network,
+    _network: Network,
 ) -> impl Iterator<Item = Address> + '_ {
     let last = wallet.derivation_index(keychain);
     // If nothing has been revealed yet, last == None → empty range.
     let count = last.map(|l| l + 1).unwrap_or(0);
-    (0..count).map(move |idx| {
-        wallet.peek_address(keychain, idx).address
-    })
+    (0..count).map(move |idx| wallet.peek_address(keychain, idx).address)
 }
 
 // ─── MockWalletGraph ─────────────────────────────────────────────────────────
@@ -443,7 +469,7 @@ pub struct MockWalletGraph {
     output_map: HashMap<Txid, Vec<OutputInfo>>,
     utxo_list: Vec<MockUtxo>,
     confirmations_map: HashMap<Txid, u32>,
-    network: Network,
+    _network: Network,
 }
 
 static EMPTY_INPUTS: &[InputInfo] = &[];
@@ -593,14 +619,14 @@ impl MockGraphBuilder {
                 output_map: HashMap::new(),
                 utxo_list: Vec::new(),
                 confirmations_map: HashMap::new(),
-                network: Network::Regtest,
+                _network: Network::Regtest,
             },
         }
     }
 
     /// Set the network (default: Regtest).
     pub fn with_network(mut self, network: Network) -> Self {
-        self.graph.network = network;
+        self.graph._network = network;
         self
     }
 
@@ -638,7 +664,7 @@ impl MockGraphBuilder {
             .iter()
             .chain(self.graph.our_change_addrs.iter())
             .any(|a| *a == to_addr);
-        let is_change = self.graph.our_change_addrs.iter().any(|a| *a == to_addr);
+        let is_change = self.graph.our_change_addrs.contains(&to_addr);
 
         let out_info = OutputInfo {
             address: Some(to_addr.clone()),
@@ -703,18 +729,19 @@ impl MockGraphBuilder {
                     .output_map
                     .get(parent_txid)
                     .and_then(|outs| outs.get(*vout as usize))
-                    .map(|out_info| {
-                        (out_info.address.clone(), out_info.script.clone())
-                    })
+                    .map(|out_info| (out_info.address.clone(), out_info.script.clone()))
                     .unwrap_or((None, ScriptBuf::default()));
 
-                let is_ours = addr.as_ref().map(|a| {
-                    self.graph
-                        .our_addrs
-                        .iter()
-                        .chain(self.graph.our_change_addrs.iter())
-                        .any(|o| o == a)
-                }).unwrap_or(false);
+                let is_ours = addr
+                    .as_ref()
+                    .map(|a| {
+                        self.graph
+                            .our_addrs
+                            .iter()
+                            .chain(self.graph.our_change_addrs.iter())
+                            .any(|o| o == a)
+                    })
+                    .unwrap_or(false);
 
                 InputInfo {
                     address: addr,
@@ -838,12 +865,13 @@ mod tests {
     #[test]
     fn test_our_addresses_contains_wallet_address() {
         let addr = regtest_p2tr_address();
-        let graph = MockGraphBuilder::new()
-            .with_address(addr.clone())
-            .build();
+        let graph = MockGraphBuilder::new().with_address(addr.clone()).build();
 
         let addresses = graph.our_addresses();
-        assert!(addresses.contains(&addr), "our_addresses should contain the wallet address");
+        assert!(
+            addresses.contains(&addr),
+            "our_addresses should contain the wallet address"
+        );
     }
 
     #[test]
@@ -864,9 +892,7 @@ mod tests {
     #[test]
     fn test_is_ours_receive_address() {
         let addr = regtest_p2tr_address();
-        let graph = MockGraphBuilder::new()
-            .with_address(addr.clone())
-            .build();
+        let graph = MockGraphBuilder::new().with_address(addr.clone()).build();
 
         assert!(graph.is_ours(&addr.script_pubkey()));
     }
@@ -875,9 +901,7 @@ mod tests {
     fn test_is_ours_unknown_address() {
         let addr = regtest_p2tr_address();
         let other = regtest_p2tr_address();
-        let graph = MockGraphBuilder::new()
-            .with_address(addr.clone())
-            .build();
+        let graph = MockGraphBuilder::new().with_address(addr.clone()).build();
 
         assert!(!graph.is_ours(&other.script_pubkey()));
     }
@@ -891,8 +915,14 @@ mod tests {
             .with_change_address(change.clone())
             .build();
 
-        assert!(!graph.is_change(&addr.script_pubkey()), "receive addr should not be change");
-        assert!(graph.is_change(&change.script_pubkey()), "change addr should be change");
+        assert!(
+            !graph.is_change(&addr.script_pubkey()),
+            "receive addr should not be change"
+        );
+        assert!(
+            graph.is_change(&change.script_pubkey()),
+            "change addr should be change"
+        );
     }
 
     #[test]
@@ -911,7 +941,10 @@ mod tests {
             .with_receive_tx(txid, addr.clone(), 100_000)
             .build();
 
-        assert!(graph.fetch_tx(txid).is_some(), "receive tx should be in tx_map");
+        assert!(
+            graph.fetch_tx(txid).is_some(),
+            "receive tx should be in tx_map"
+        );
         let outs = graph.output_addresses(txid);
         assert_eq!(outs.len(), 1);
         assert_eq!(outs[0].value_sats, 100_000);
@@ -981,7 +1014,10 @@ mod tests {
         let change_out = outputs.iter().find(|o| o.is_change).expect("change output");
         assert_eq!(change_out.value_sats, 49_000);
 
-        let ext_out = outputs.iter().find(|o| !o.is_change).expect("external output");
+        let ext_out = outputs
+            .iter()
+            .find(|o| !o.is_change)
+            .expect("external output");
         assert_eq!(ext_out.value_sats, 150_000);
         assert!(!ext_out.is_ours);
     }

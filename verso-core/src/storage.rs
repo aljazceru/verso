@@ -1,9 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use bdk_sqlite::Store;
-use bdk_wallet::{KeychainKind, LoadParams, PersistedWallet, CreateParams};
-use bitcoin::Network;
+use bdk_wallet::{CreateParams, KeychainKind, LoadParams, PersistedWallet};
 use bitcoin::hashes::{sha256, Hash};
+use bitcoin::Network;
 
 use crate::error::VersoError;
 
@@ -58,15 +58,19 @@ pub async fn open_wallet(
     Ok((wallet, store))
 }
 
-/// Compute a deterministic DB path from the descriptor and network.
+/// Compute a deterministic DB path from both descriptors and network.
 ///
-/// Produces a stable filename by hashing the first 64 chars of the descriptor
-/// together with the network name, then using the first 12 hex chars as the
-/// filename stem.
-pub fn resolve_db_path(data_dir: &Path, external_desc: &str, network: Network) -> PathBuf {
-    let input = format!("{}:{}", &external_desc[..external_desc.len().min(64)], network);
+/// Uses the full descriptor set to avoid collisions between distinct wallet
+/// configurations that share long common prefixes.
+pub fn resolve_db_path(
+    data_dir: &Path,
+    external_desc: &str,
+    internal_desc: &str,
+    network: Network,
+) -> PathBuf {
+    let input = format!("{}:{}:{}", external_desc, internal_desc, network);
     let hash = sha256::Hash::hash(input.as_bytes());
     let hex = hash.to_string();
-    let stem = &hex[..12];
+    let stem = &hex[..16];
     data_dir.join(format!("verso_{}.db", stem))
 }

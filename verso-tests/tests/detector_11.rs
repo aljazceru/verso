@@ -1,6 +1,6 @@
+use verso_core::report::FindingType;
 use verso_tests::regtest_harness::RegtestHarness;
 use verso_tests::scenarios;
-use verso_core::report::FindingType;
 
 #[tokio::test]
 async fn test_11_tainted_regtest() {
@@ -19,11 +19,28 @@ async fn test_11_tainted_regtest() {
 
     let report = verso_core::scan(config).await.unwrap();
     assert!(
-        report.findings.iter().any(|f| f.finding_type == FindingType::TaintedUtxoMerge)
-            || report.warnings.iter().any(|f| f.finding_type == FindingType::DirectTaint)
-            || report.findings.iter().any(|f| f.finding_type == FindingType::DirectTaint),
+        report
+            .findings
+            .iter()
+            .any(|f| f.finding_type == FindingType::TaintedUtxoMerge)
+            || report
+                .warnings
+                .iter()
+                .any(|f| f.finding_type == FindingType::DirectTaint)
+            || report
+                .findings
+                .iter()
+                .any(|f| f.finding_type == FindingType::DirectTaint),
         "Expected TaintedUtxoMerge or DirectTaint but got findings: {:?}, warnings: {:?}",
-        report.findings.iter().map(|f| &f.finding_type).collect::<Vec<_>>(),
-        report.warnings.iter().map(|f| &f.finding_type).collect::<Vec<_>>()
+        report
+            .findings
+            .iter()
+            .map(|f| &f.finding_type)
+            .collect::<Vec<_>>(),
+        report
+            .warnings
+            .iter()
+            .map(|f| &f.finding_type)
+            .collect::<Vec<_>>()
     );
 }

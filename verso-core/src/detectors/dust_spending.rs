@@ -146,7 +146,7 @@ mod tests {
         let graph = MockGraphBuilder::new()
             .with_address(addr1.clone())
             .with_address(addr2.clone())
-            .with_receive_tx(recv_dust_txid, addr1.clone(), 546)      // dust
+            .with_receive_tx(recv_dust_txid, addr1.clone(), 546) // dust
             .with_receive_tx(recv_normal_txid, addr2.clone(), 100_000) // normal
             .with_spend_tx(
                 spend_txid,
@@ -169,8 +169,17 @@ mod tests {
         assert!(!relevant.is_empty(), "Expected DustSpending finding");
         assert_eq!(relevant[0].finding_type, FindingType::DustSpending);
         assert_eq!(relevant[0].severity, Severity::High);
-        assert_eq!(relevant[0].details["normal_inputs"].as_array().unwrap().len(), 1);
-        assert_eq!(relevant[0].details["dust_inputs"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            relevant[0].details["normal_inputs"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            relevant[0].details["dust_inputs"].as_array().unwrap().len(),
+            1
+        );
     }
 
     #[test]
@@ -202,7 +211,10 @@ mod tests {
             .iter()
             .filter(|f| f.details["txid"].as_str() == Some(&spend_txid.to_string()))
             .collect();
-        assert!(relevant.is_empty(), "Only dust inputs → no DustSpending finding");
+        assert!(
+            relevant.is_empty(),
+            "Only dust inputs → no DustSpending finding"
+        );
     }
 
     #[test]
@@ -234,7 +246,10 @@ mod tests {
             .iter()
             .filter(|f| f.details["txid"].as_str() == Some(&spend_txid.to_string()))
             .collect();
-        assert!(relevant.is_empty(), "Only normal inputs → no DustSpending finding");
+        assert!(
+            relevant.is_empty(),
+            "Only normal inputs → no DustSpending finding"
+        );
     }
 
     #[test]
@@ -261,6 +276,9 @@ mod tests {
             .iter()
             .filter(|f| f.details["txid"].as_str() == Some(&spend_txid.to_string()))
             .collect();
-        assert!(relevant.is_empty(), "Single input → no DustSpending finding");
+        assert!(
+            relevant.is_empty(),
+            "Single input → no DustSpending finding"
+        );
     }
 }

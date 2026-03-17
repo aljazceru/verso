@@ -48,9 +48,7 @@ pub fn scenario_02_cioh(h: &RegtestHarness) {
     let utxos = h.list_utxos("alice");
     let small: Vec<_> = utxos
         .iter()
-        .filter(|u| {
-            u.amount >= btc(0.004) && u.amount <= btc(0.006)
-        })
+        .filter(|u| u.amount >= btc(0.004) && u.amount <= btc(0.006))
         .take(5)
         .collect();
 
@@ -64,7 +62,11 @@ pub fn scenario_02_cioh(h: &RegtestHarness) {
 
     let inputs: Vec<CreateRawTransactionInput> = small
         .iter()
-        .map(|u| CreateRawTransactionInput { txid: u.txid, vout: u.vout, sequence: None })
+        .map(|u| CreateRawTransactionInput {
+            txid: u.txid,
+            vout: u.vout,
+            sequence: None,
+        })
         .collect();
 
     let mut outputs = HashMap::new();
@@ -129,8 +131,16 @@ pub fn scenario_04_dust_spending(h: &RegtestHarness) {
     let fee = sats(10_000);
 
     let inputs = vec![
-        CreateRawTransactionInput { txid: dust.txid, vout: dust.vout, sequence: None },
-        CreateRawTransactionInput { txid: normal.txid, vout: normal.vout, sequence: None },
+        CreateRawTransactionInput {
+            txid: dust.txid,
+            vout: dust.vout,
+            sequence: None,
+        },
+        CreateRawTransactionInput {
+            txid: normal.txid,
+            vout: normal.vout,
+            sequence: None,
+        },
     ];
     let mut outputs = HashMap::new();
     outputs.insert(dest.to_string(), total - fee);
@@ -191,7 +201,11 @@ pub fn scenario_06_consolidation(h: &RegtestHarness) {
 
     let inputs: Vec<CreateRawTransactionInput> = small
         .iter()
-        .map(|u| CreateRawTransactionInput { txid: u.txid, vout: u.vout, sequence: None })
+        .map(|u| CreateRawTransactionInput {
+            txid: u.txid,
+            vout: u.vout,
+            sequence: None,
+        })
         .collect();
     let mut outputs = HashMap::new();
     outputs.insert(consol_addr.to_string(), total - fee);
@@ -222,8 +236,8 @@ pub fn scenario_06_consolidation(h: &RegtestHarness) {
 pub fn scenario_07_script_type_mixing(h: &RegtestHarness) {
     h.ensure_funds("bob", 2.0);
 
-    let wpkh_addr = h.new_address("alice");       // bech32 / P2WPKH
-    let tr_addr = h.new_address_tr("alice");      // bech32m / P2TR
+    let wpkh_addr = h.new_address("alice"); // bech32 / P2WPKH
+    let tr_addr = h.new_address_tr("alice"); // bech32m / P2TR
 
     h.send_from("bob", &wpkh_addr, 0.005);
     h.send_from("bob", &tr_addr, 0.005);
@@ -259,8 +273,16 @@ pub fn scenario_07_script_type_mixing(h: &RegtestHarness) {
     let fee = sats(20_000); // slightly higher fee for mixed-script tx
 
     let inputs = vec![
-        CreateRawTransactionInput { txid: wu.txid, vout: wu.vout, sequence: None },
-        CreateRawTransactionInput { txid: tu.txid, vout: tu.vout, sequence: None },
+        CreateRawTransactionInput {
+            txid: wu.txid,
+            vout: wu.vout,
+            sequence: None,
+        },
+        CreateRawTransactionInput {
+            txid: tu.txid,
+            vout: tu.vout,
+            sequence: None,
+        },
     ];
     let mut outputs = HashMap::new();
     outputs.insert(dest.to_string(), total - fee);
@@ -297,8 +319,16 @@ pub fn scenario_08_cluster_merge(h: &RegtestHarness) {
     let fee = sats(20_000);
 
     let inputs = vec![
-        CreateRawTransactionInput { txid: ua.txid, vout: ua.vout, sequence: None },
-        CreateRawTransactionInput { txid: ub.txid, vout: ub.vout, sequence: None },
+        CreateRawTransactionInput {
+            txid: ua.txid,
+            vout: ua.vout,
+            sequence: None,
+        },
+        CreateRawTransactionInput {
+            txid: ub.txid,
+            vout: ub.vout,
+            sequence: None,
+        },
     ];
     let mut outputs = HashMap::new();
     outputs.insert(dest.to_string(), total - fee);
@@ -328,7 +358,9 @@ pub fn scenario_09_utxo_age_spread(h: &RegtestHarness) {
 pub fn scenario_10_exchange_origin(h: &RegtestHarness) {
     h.ensure_funds("exchange", 5.0);
 
-    let wallets = ["alice", "bob", "carol", "alice", "bob", "carol", "alice", "bob"];
+    let wallets = [
+        "alice", "bob", "carol", "alice", "bob", "carol", "alice", "bob",
+    ];
     let mut batch: HashMap<String, f64> = HashMap::new();
 
     for (i, wallet) in wallets.iter().enumerate() {
@@ -372,8 +404,16 @@ pub fn scenario_11_tainted_utxos(h: &RegtestHarness) -> bitcoin::Txid {
     let fee = sats(20_000);
 
     let inputs = vec![
-        CreateRawTransactionInput { txid: tu.txid, vout: tu.vout, sequence: None },
-        CreateRawTransactionInput { txid: cu.txid, vout: cu.vout, sequence: None },
+        CreateRawTransactionInput {
+            txid: tu.txid,
+            vout: tu.vout,
+            sequence: None,
+        },
+        CreateRawTransactionInput {
+            txid: cu.txid,
+            vout: cu.vout,
+            sequence: None,
+        },
     ];
     let mut outputs = HashMap::new();
     outputs.insert(dest.to_string(), total - fee);

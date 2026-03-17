@@ -1,6 +1,6 @@
-use dioxus::prelude::*;
-use crate::state::Screen;
 use crate::components::{FindingCard, SummaryBar};
+use crate::state::Screen;
+use dioxus::prelude::*;
 
 #[component]
 pub fn ReportView(

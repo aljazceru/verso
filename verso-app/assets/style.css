@@ -1,41 +1,39 @@
 /* ─── Verso — High Contrast Dual Theme ─────────────────────────────────── */
 
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
-
 /* ─── Dark theme (default) ──────────────────────────────────────────────── */
 :root {
-  --bg:           #0D0D1A;
-  --bg-card:      #16162A;
-  --bg-elevated:  #20203C;
-  --bg-input:     #0A0A16;
+  --bg:           #0B0C19;
+  --bg-card:      #181A34;
+  --bg-elevated:  #24264A;
+  --bg-input:     #13162D;
 
-  --border:        #2C2C50;
-  --border-bright: #5050A0;
+  --border:        #4A4A78;
+  --border-bright: #7D7DB8;
 
-  --text-primary:   #EEEEF8;
-  --text-secondary: #9494C0;
-  --text-muted:     #6060A0;
+  --text-primary:   #FFFFFF;
+  --text-secondary: #D8DDFE;
+  --text-muted:     #A3AED8;
 
-  --accent:       #6878FF;
-  --accent-dim:   rgba(104, 120, 255, 0.18);
-  --bitcoin:      #F7931A;
-  --bitcoin-dim:  rgba(247, 147, 26, 0.16);
+  --accent:       #7487FF;
+  --accent-dim:   rgba(116, 135, 255, 0.24);
+  --bitcoin:      #F7A73A;
+  --bitcoin-dim:  rgba(247, 167, 58, 0.22);
 
-  --critical:     #FF3D6A;
-  --critical-dim: rgba(255, 61, 106, 0.18);
-  --high:         #FF7040;
-  --high-dim:     rgba(255, 112, 64, 0.18);
-  --medium:       #FFBE2E;
-  --medium-dim:   rgba(255, 190, 46, 0.18);
-  --low:          #6878FF;
-  --low-dim:      rgba(104, 120, 255, 0.18);
-  --warning-c:    #B89BFF;
-  --warning-dim:  rgba(184, 155, 255, 0.18);
-  --clean:        #00E5A8;
-  --clean-dim:    rgba(0, 229, 168, 0.14);
+  --critical:     #FF5C82;
+  --critical-dim: rgba(255, 92, 130, 0.22);
+  --high:         #FF7F55;
+  --high-dim:     rgba(255, 127, 85, 0.22);
+  --medium:       #FFD25A;
+  --medium-dim:   rgba(255, 210, 90, 0.22);
+  --low:          #7487FF;
+  --low-dim:      rgba(116, 135, 255, 0.22);
+  --warning-c:    #C0A2FF;
+  --warning-dim:  rgba(192, 162, 255, 0.22);
+  --clean:        #00E7AA;
+  --clean-dim:    rgba(0, 231, 170, 0.16);
 
   --shadow-card: 0 1px 3px rgba(0,0,0,0.6);
-  --shadow-focus: 0 0 0 3px rgba(104,120,255,0.25);
+  --shadow-focus: 0 0 0 3px rgba(116,135,255,0.28);
 }
 
 /* ─── Light theme ────────────────────────────────────────────────────────── */
@@ -87,7 +85,7 @@ html, body {
   background: var(--bg);
   color: var(--text-primary);
   font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   transition: background 0.2s ease, color 0.2s ease;
@@ -224,7 +222,7 @@ html, body {
 
 .input-headline {
   margin: 0 0 0.2rem;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.16em;
   color: var(--text-muted);
@@ -247,7 +245,7 @@ html, body {
 }
 
 .form-label {
-  font-size: 0.66rem;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.13em;
   text-transform: uppercase;
@@ -271,7 +269,7 @@ select.form-select {
   border-radius: 4px;
   color: var(--text-primary);
   font-family: inherit;
-  font-size: 0.82rem;
+  font-size: 0.87rem;
   line-height: 1.55;
   outline: none;
   transition: border-color 0.14s ease, box-shadow 0.14s ease, background 0.2s ease;
@@ -283,7 +281,7 @@ textarea.descriptor-input {
 }
 
 textarea.descriptor-input::placeholder {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-style: italic;
 }
 
@@ -308,9 +306,10 @@ select.form-select {
 }
 
 .form-hint {
-  font-size: 0.7rem;
-  color: var(--text-muted);
+  font-size: 0.86rem;
+  color: var(--text-secondary);
   font-style: italic;
+  line-height: 1.45;
 }
 
 .btn-analyze {

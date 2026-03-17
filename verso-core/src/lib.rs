@@ -4,20 +4,22 @@ pub mod detectors;
 pub mod error;
 pub mod graph;
 pub mod report;
-pub mod storage;
 pub(crate) mod scanner;
+pub mod storage;
 
 pub use backend::ChainBackend;
 pub use config::ScanConfig;
 pub use error::VersoError;
-pub use graph::{GraphView, InputInfo, MockGraphBuilder, MockWalletGraph, OutputInfo, ScriptType, WalletGraph};
+pub use graph::{
+    GraphView, InputInfo, MockGraphBuilder, MockWalletGraph, OutputInfo, ScriptType, WalletGraph,
+};
 pub use report::Report;
 
-use crate::scanner::Scanner;
 use crate::backend::{BitcoindBackend, EsploraBackend};
-use crate::graph::WalletGraph as WG;
 use crate::config::{BackendConfig, ScanProgress};
-use crate::report::{Stats, Summary, FindingCategory};
+use crate::graph::WalletGraph as WG;
+use crate::report::{FindingCategory, Stats, Summary};
+use crate::scanner::Scanner;
 
 pub async fn scan(config: ScanConfig) -> Result<Report, VersoError> {
     // Progress helper closure
@@ -38,18 +40,14 @@ pub async fn scan(config: ScanConfig) -> Result<Report, VersoError> {
     // 2. Create the chain backend
     send_progress("connect", "Connecting to backend...");
     let backend: Box<dyn ChainBackend> = match &config.backend {
-        BackendConfig::Bitcoind { url, auth } => {
-            Box::new(
-                BitcoindBackend::new(url, auth, config.network)
-                    .map_err(|e| VersoError::BackendConnection(e.to_string()))?,
-            )
-        }
-        BackendConfig::Esplora { url } => {
-            Box::new(
-                EsploraBackend::new(url, config.network, config.derivation_limit)
-                    .map_err(|e| VersoError::BackendConnection(e.to_string()))?,
-            )
-        }
+        BackendConfig::Bitcoind { url, auth } => Box::new(
+            BitcoindBackend::new(url, auth, config.network)
+                .map_err(|e| VersoError::BackendConnection(e.to_string()))?,
+        ),
+        BackendConfig::Esplora { url } => Box::new(
+            EsploraBackend::new(url, config.network, config.derivation_limit)
+                .map_err(|e| VersoError::BackendConnection(e.to_string()))?,
+        ),
     };
 
     // 3. Consume the scanner and extract the wallet kind so we can mutably sync
@@ -109,8 +107,8 @@ pub async fn scan(config: ScanConfig) -> Result<Report, VersoError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bitcoin::Network;
     use crate::config::BackendConfig;
+    use bitcoin::Network;
 
     // Standard BDK testnet extended public key (same one used in scanner tests).
     const TPUB: &str = "tpubD6NzVbkrYhZ4XHndKkuB8FifXm8r5FQHwrN6oZuWCz13qb93rtgKvD4PQsqC4HP4yhV3tA2fqr2RbY5mNXfM7RxXUoeABoDtsFUq2zJq6YK";
@@ -176,8 +174,9 @@ mod tests {
         f1.category = FindingCategory::Finding;
         f2.category = FindingCategory::Warning;
         let all = vec![f1, f2];
-        let (findings, warnings): (Vec<_>, Vec<_>) =
-            all.into_iter().partition(|f| f.category == FindingCategory::Finding);
+        let (findings, warnings): (Vec<_>, Vec<_>) = all
+            .into_iter()
+            .partition(|f| f.category == FindingCategory::Finding);
 
         assert_eq!(findings.len(), 1);
         assert_eq!(warnings.len(), 1);
@@ -188,7 +187,7 @@ mod tests {
     /// Verify that Stats and Summary are computed correctly for an empty wallet.
     #[test]
     fn test_empty_report_is_clean() {
-        use crate::report::{Stats, Summary, Severity};
+        use crate::report::{Stats, Summary};
 
         let findings: Vec<crate::report::Finding> = vec![];
         let warnings: Vec<crate::report::Finding> = vec![];

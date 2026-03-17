@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 verso-core = { path = "../verso-core" }
+dioxus-desktop = "0.7"
 dioxus = { version = "0.7", features = ["desktop"] }
 tokio = { version = "1", features = ["full"] }
 bitcoin = "0.32"

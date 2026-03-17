@@ -1,6 +1,6 @@
+use verso_core::report::FindingType;
 use verso_tests::regtest_harness::RegtestHarness;
 use verso_tests::scenarios;
-use verso_core::report::FindingType;
 
 /// Scenario 07 co-spends a P2WPKH UTXO and a P2TR UTXO in the same tx.
 ///

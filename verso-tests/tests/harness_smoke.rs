@@ -6,7 +6,11 @@ async fn test_harness_boots() {
     let h = RegtestHarness::new();
     // Verify the chain is at height >= 110.
     let info = h.client.get_blockchain_info().unwrap();
-    assert!(info.blocks >= 110, "Expected >= 110 blocks, got {}", info.blocks);
+    assert!(
+        info.blocks >= 110,
+        "Expected >= 110 blocks, got {}",
+        info.blocks
+    );
 }
 
 #[tokio::test]

@@ -4,14 +4,37 @@ mod components;
 mod screens;
 mod state;
 
+const APP_HEAD: &str = concat!(
+    r#"
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap">
+    <style>
+    "#,
+    include_str!("../assets/style.css"),
+    r#"
+    </style>
+"#
+);
+
 fn main() {
-    dioxus::launch(App);
+    if cfg!(target_arch = "wasm32") {
+        dioxus::launch(app);
+    } else {
+        dioxus::LaunchBuilder::desktop()
+            .with_cfg(
+                dioxus_desktop::Config::new()
+                    .with_background_color((11, 12, 25, 255))
+                    .with_custom_head(APP_HEAD.to_string()),
+            )
+            .launch(app);
+    }
 }
 
-fn App() -> Element {
-    let screen    = use_signal(|| state::Screen::Input);
-    let descriptor = use_signal(|| String::new());
-    let report    = use_signal(|| Option::<verso_core::report::Report>::None);
+fn app() -> Element {
+    let screen = use_signal(|| state::Screen::Input);
+    let descriptor = use_signal(String::new);
+    let report = use_signal(|| Option::<verso_core::report::Report>::None);
     let scan_error = use_signal(|| Option::<String>::None);
     // Vec<String> log — pushed directly from the background task.
     // No use_effect middleman, so no message is ever dropped.
@@ -19,27 +42,31 @@ fn App() -> Element {
     let mut dark_mode = use_signal(|| true);
 
     let theme = if dark_mode() { "dark" } else { "light" };
-    let toggle_icon  = if dark_mode() { "☀" } else { "◐" };
+    let toggle_icon = if dark_mode() { "☀" } else { "◐" };
     let toggle_label = if dark_mode() { "LIGHT" } else { "DARK" };
 
     let status_dot_class = match screen() {
         state::Screen::Loading => "status-dot scanning",
-        state::Screen::Error   => "status-dot error",
-        _                      => "status-dot",
+        state::Screen::Error => "status-dot error",
+        _ => "status-dot",
     };
     let status_text = match screen() {
-        state::Screen::Input   => "READY",
+        state::Screen::Input => "",
         state::Screen::Loading => "SCANNING",
-        state::Screen::Report  => "COMPLETE",
-        state::Screen::Error   => "ERROR",
+        state::Screen::Report => "COMPLETE",
+        state::Screen::Error => "ERROR",
     };
 
     rsx! {
-        document::Link {
-            rel: "stylesheet",
-            href: "https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
+        if cfg!(target_arch = "wasm32") {
+            document::Link {
+                rel: "stylesheet",
+                href: "https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
+            }
+            document::Stylesheet {
+                href: asset!("/assets/style.css")
+            }
         }
-        document::Link { rel: "stylesheet", href: asset!("/assets/style.css") }
 
         div {
             class: "app",

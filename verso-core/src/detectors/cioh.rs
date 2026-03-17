@@ -46,16 +46,23 @@ impl Detector for CiohDetector {
             let external_inputs = total_inputs - n_ours;
             let ownership_pct = (n_ours as f64 / total_inputs as f64 * 100.0).round();
 
-            let our_addresses: Vec<serde_json::Value> = our_inputs.iter().filter_map(|inp| {
-                inp.address.as_ref().map(|a| {
-                    let role = if graph.is_change(&a.script_pubkey()) { "change" } else { "receive" };
-                    serde_json::json!({
-                        "address": a.to_string(),
-                        "role": role,
-                        "amount_sats": inp.value_sats,
+            let our_addresses: Vec<serde_json::Value> = our_inputs
+                .iter()
+                .filter_map(|inp| {
+                    inp.address.as_ref().map(|a| {
+                        let role = if graph.is_change(&a.script_pubkey()) {
+                            "change"
+                        } else {
+                            "receive"
+                        };
+                        serde_json::json!({
+                            "address": a.to_string(),
+                            "role": role,
+                            "amount_sats": inp.value_sats,
+                        })
                     })
                 })
-            }).collect();
+                .collect();
 
             findings.push(Finding {
                 finding_type: FindingType::Cioh,
@@ -154,8 +161,11 @@ mod tests {
 
         assert!(!findings.is_empty(), "Expected CIOH finding");
         assert_eq!(findings[0].finding_type, FindingType::Cioh);
-        assert_eq!(findings[0].severity, Severity::Critical,
-            "All inputs ours → Critical");
+        assert_eq!(
+            findings[0].severity,
+            Severity::Critical,
+            "All inputs ours → Critical"
+        );
 
         let details = &findings[0].details;
         assert_eq!(details["our_input_count"].as_u64().unwrap(), 2);
@@ -206,9 +216,15 @@ mod tests {
             .filter(|f| f.details["txid"].as_str() == Some(&spend_txid.to_string()))
             .collect();
 
-        assert!(!cioh_findings.is_empty(), "Expected CIOH finding for spend_txid");
-        assert_eq!(cioh_findings[0].severity, Severity::High,
-            "Mixed inputs → High");
+        assert!(
+            !cioh_findings.is_empty(),
+            "Expected CIOH finding for spend_txid"
+        );
+        assert_eq!(
+            cioh_findings[0].severity,
+            Severity::High,
+            "Mixed inputs → High"
+        );
 
         let details = &cioh_findings[0].details;
         assert_eq!(details["our_input_count"].as_u64().unwrap(), 2);

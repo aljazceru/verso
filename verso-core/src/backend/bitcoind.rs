@@ -38,7 +38,12 @@ impl ChainBackend for BitcoindBackend {
     ) -> Result<(), VersoError> {
         let checkpoint = wallet.latest_checkpoint();
         let start_height = checkpoint.height().saturating_sub(1);
-        let mut emitter = Emitter::new(&self.client, checkpoint, start_height, NO_EXPECTED_MEMPOOL_TXS);
+        let mut emitter = Emitter::new(
+            &self.client,
+            checkpoint,
+            start_height,
+            NO_EXPECTED_MEMPOOL_TXS,
+        );
 
         let mut blocks_processed: u64 = 0;
         while let Some(block_event) = emitter
@@ -53,10 +58,7 @@ impl ChainBackend for BitcoindBackend {
             if let Some(tx) = progress_tx {
                 let _ = tx.send(ScanProgress {
                     phase: "sync".to_string(),
-                    message: format!(
-                        "Applied block at height {}",
-                        block_event.block_height()
-                    ),
+                    message: format!("Applied block at height {}", block_event.block_height()),
                     percent: None,
                 });
             }
@@ -78,10 +80,7 @@ impl ChainBackend for BitcoindBackend {
         if let Some(tx) = progress_tx {
             let _ = tx.send(ScanProgress {
                 phase: "sync".to_string(),
-                message: format!(
-                    "Mempool: {} transactions",
-                    mempool_event.update.len()
-                ),
+                message: format!("Mempool: {} transactions", mempool_event.update.len()),
                 percent: Some(100.0),
             });
         }
@@ -92,7 +91,17 @@ impl ChainBackend for BitcoindBackend {
     async fn get_tx(&self, txid: Txid) -> Result<Option<Transaction>, VersoError> {
         match self.client.get_raw_transaction(&txid, None) {
             Ok(tx) => Ok(Some(tx)),
-            Err(_) => Ok(None),
+            Err(err) => {
+                let msg = err.to_string().to_lowercase();
+                if msg.contains("no such mempool transaction")
+                    || msg.contains("no such transaction")
+                    || msg.contains("not found")
+                {
+                    Ok(None)
+                } else {
+                    Err(VersoError::Rpc(err.to_string()))
+                }
+            }
         }
     }
 }

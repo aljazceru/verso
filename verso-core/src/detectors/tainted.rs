@@ -67,7 +67,8 @@ impl Detector for TaintedDetector {
             }
 
             if !tainted_inputs.is_empty() && !clean_inputs.is_empty() {
-                let taint_pct = (tainted_inputs.len() as f64 / inputs.len() as f64 * 100.0).round() as u64;
+                let taint_pct =
+                    (tainted_inputs.len() as f64 / inputs.len() as f64 * 100.0).round() as u64;
                 findings.push(Finding {
                     finding_type: FindingType::TaintedUtxoMerge,
                     severity: Severity::High,
@@ -213,7 +214,10 @@ mod tests {
             .build();
         let config = config_no_risky();
         let findings = TaintedDetector.detect(&graph, &config);
-        assert!(findings.is_empty(), "Should skip when known_risky_txids is None");
+        assert!(
+            findings.is_empty(),
+            "Should skip when known_risky_txids is None"
+        );
     }
 
     #[test]
@@ -311,7 +315,10 @@ mod tests {
             .iter()
             .filter(|f| f.finding_type == FindingType::TaintedUtxoMerge)
             .collect();
-        assert!(merge_findings.is_empty(), "No tainted inputs = no merge finding");
+        assert!(
+            merge_findings.is_empty(),
+            "No tainted inputs = no merge finding"
+        );
     }
 
     #[test]

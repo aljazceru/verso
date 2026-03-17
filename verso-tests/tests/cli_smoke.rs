@@ -27,9 +27,7 @@ fn verso_cli_bin() -> std::path::PathBuf {
         }
     }
 
-    panic!(
-        "Could not find verso-cli binary. Run `cargo build -p verso-cli` first."
-    );
+    panic!("Could not find verso-cli binary. Run `cargo build -p verso-cli` first.");
 }
 
 #[tokio::test]
@@ -43,13 +41,7 @@ async fn test_cli_json_output_valid() {
 
     let descriptors = h.get_descriptors("alice");
     let rpc_url = h.bitcoind.rpc_url();
-    let cookie = h
-        .bitcoind
-        .params
-        .cookie_file
-        .to_str()
-        .unwrap()
-        .to_string();
+    let cookie = h.bitcoind.params.cookie_file.to_str().unwrap().to_string();
 
     let mut args = vec![
         "--network".to_string(),
@@ -77,8 +69,8 @@ async fn test_cli_json_output_valid() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let report: verso_core::report::Report = serde_json::from_slice(&output.stdout)
-        .expect("CLI output should be valid JSON Report");
+    let report: verso_core::report::Report =
+        serde_json::from_slice(&output.stdout).expect("CLI output should be valid JSON Report");
 
     assert!(
         report.stats.addresses_derived > 0,

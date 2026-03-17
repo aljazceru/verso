@@ -216,7 +216,11 @@ mod tests {
             .with_receive_tx(recv3, addr3.clone(), 300_000)
             .with_spend_tx(
                 spend_txid,
-                vec![(recv1, 0, 100_000), (recv2, 0, 200_000), (recv3, 0, 300_000)],
+                vec![
+                    (recv1, 0, 100_000),
+                    (recv2, 0, 200_000),
+                    (recv3, 0, 300_000),
+                ],
                 vec![
                     (out1.clone(), 200_000, false),
                     (out2.clone(), 200_000, false),
@@ -256,7 +260,11 @@ mod tests {
             .with_receive_tx(recv3, addr3.clone(), 300_000)
             .with_spend_tx(
                 consolidation_txid,
-                vec![(recv1, 0, 100_000), (recv2, 0, 200_000), (recv3, 0, 300_000)],
+                vec![
+                    (recv1, 0, 100_000),
+                    (recv2, 0, 200_000),
+                    (recv3, 0, 300_000),
+                ],
                 vec![
                     (out1.clone(), 297_000, false),
                     (out2.clone(), 298_000, false),
@@ -271,6 +279,10 @@ mod tests {
         let findings = ConsolidationDetector.detect(&graph, &config);
 
         // 3 inputs, 2 outputs → qualifies as consolidation; but only reported once
-        assert_eq!(findings.len(), 1, "Should deduplicate findings for same txid");
+        assert_eq!(
+            findings.len(),
+            1,
+            "Should deduplicate findings for same txid"
+        );
     }
 }

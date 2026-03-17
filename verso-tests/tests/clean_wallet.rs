@@ -14,8 +14,7 @@ async fn test_clean_wallet_has_no_findings() {
     assert!(
         report.summary.clean,
         "Expected clean wallet but got findings: {:?}, warnings: {:?}",
-        report.findings,
-        report.warnings
+        report.findings, report.warnings
     );
     assert!(
         report.findings.is_empty(),

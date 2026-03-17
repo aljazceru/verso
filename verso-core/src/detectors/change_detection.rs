@@ -13,7 +13,7 @@ pub struct ChangeDetectionDetector;
 /// Returns true if `sats` is a "round" amount:
 /// divisible by 100_000 (0.001 BTC) or by 1_000_000 (0.01 BTC).
 fn is_round(sats: u64) -> bool {
-    sats % 100_000 == 0 || sats % 1_000_000 == 0
+    sats.is_multiple_of(100_000) || sats.is_multiple_of(1_000_000)
 }
 
 impl Detector for ChangeDetectionDetector {
@@ -219,10 +219,7 @@ mod tests {
         assert_eq!(findings[0].severity, Severity::Medium);
 
         let heuristics = findings[0].details["heuristics"].as_array().unwrap();
-        let heuristic_strs: Vec<&str> = heuristics
-            .iter()
-            .filter_map(|v| v.as_str())
-            .collect();
+        let heuristic_strs: Vec<&str> = heuristics.iter().filter_map(|v| v.as_str()).collect();
         assert!(
             heuristic_strs.contains(&"round_amount"),
             "Should detect round_amount heuristic"
@@ -247,7 +244,7 @@ mod tests {
                 vec![(recv_txid, 0, 500_000)],
                 vec![
                     (ext_addr.clone(), 333_333, false),   // non-round payment
-                    (change_addr.clone(), 166_667, true),  // change on internal keychain
+                    (change_addr.clone(), 166_667, true), // change on internal keychain
                 ],
             )
             .build();
@@ -257,10 +254,7 @@ mod tests {
 
         assert!(!findings.is_empty(), "Expected change detection finding");
         let heuristics = findings[0].details["heuristics"].as_array().unwrap();
-        let heuristic_strs: Vec<&str> = heuristics
-            .iter()
-            .filter_map(|v| v.as_str())
-            .collect();
+        let heuristic_strs: Vec<&str> = heuristics.iter().filter_map(|v| v.as_str()).collect();
         assert!(
             heuristic_strs.contains(&"internal_keychain"),
             "Should detect internal_keychain heuristic"
@@ -287,7 +281,10 @@ mod tests {
 
         let config = test_config();
         let findings = ChangeDetectionDetector.detect(&graph, &config);
-        assert!(findings.is_empty(), "Single output should not trigger change detection");
+        assert!(
+            findings.is_empty(),
+            "Single output should not trigger change detection"
+        );
     }
 
     #[test]
@@ -314,16 +311,19 @@ mod tests {
 
         let config = test_config();
         let findings = ChangeDetectionDetector.detect(&graph, &config);
-        assert!(findings.is_empty(), "All outputs ours should not trigger change detection");
+        assert!(
+            findings.is_empty(),
+            "All outputs ours should not trigger change detection"
+        );
     }
 
     #[test]
     fn test_detects_script_type_mismatch() {
         // Our inputs are P2TR; change output is P2TR; payment output is P2WPKH
         // → change script type matches input type but differs from payment → heuristic fires
-        let our_addr = regtest_p2tr_address();       // P2TR
-        let change_addr = regtest_p2tr_address();    // P2TR (same as input)
-        let ext_addr = regtest_p2wpkh_address();     // P2WPKH (different)
+        let our_addr = regtest_p2tr_address(); // P2TR
+        let change_addr = regtest_p2tr_address(); // P2TR (same as input)
+        let ext_addr = regtest_p2wpkh_address(); // P2WPKH (different)
         let recv_txid = make_txid(1);
         let spend_txid = make_txid(2);
 
@@ -344,15 +344,16 @@ mod tests {
         let config = test_config();
         let findings = ChangeDetectionDetector.detect(&graph, &config);
 
-        assert!(!findings.is_empty(), "Expected change detection from script_type_mismatch");
+        assert!(
+            !findings.is_empty(),
+            "Expected change detection from script_type_mismatch"
+        );
         let heuristics = findings[0].details["heuristics"].as_array().unwrap();
-        let heuristic_strs: Vec<&str> = heuristics
-            .iter()
-            .filter_map(|v| v.as_str())
-            .collect();
+        let heuristic_strs: Vec<&str> = heuristics.iter().filter_map(|v| v.as_str()).collect();
         assert!(
             heuristic_strs.contains(&"script_type_mismatch"),
-            "Should detect script_type_mismatch heuristic, got: {:?}", heuristic_strs
+            "Should detect script_type_mismatch heuristic, got: {:?}",
+            heuristic_strs
         );
     }
 }

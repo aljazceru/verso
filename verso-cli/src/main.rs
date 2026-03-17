@@ -104,9 +104,28 @@ async fn main() {
         }
     };
 
-    // Parse known risky/exchange txids from CSV string
-    let known_risky_txids = cli.known_risky_txids.map(|s| parse_txids(&s));
-    let known_exchange_txids = cli.known_exchange_txids.map(|s| parse_txids(&s));
+    // Parse known risky/exchange txids from CSV string.
+    let known_risky_txids = match cli.known_risky_txids {
+        Some(s) => match parse_txids(&s) {
+            Ok(set) => Some(set),
+            Err(err) => {
+                eprintln!("Invalid --known-risky-txids value: {}", err);
+                std::process::exit(1);
+            }
+        },
+        None => None,
+    };
+
+    let known_exchange_txids = match cli.known_exchange_txids {
+        Some(s) => match parse_txids(&s) {
+            Ok(set) => Some(set),
+            Err(err) => {
+                eprintln!("Invalid --known-exchange-txids value: {}", err);
+                std::process::exit(1);
+            }
+        },
+        None => None,
+    };
 
     // Set up progress reporting to stderr
     let (progress_tx, mut progress_rx) =
@@ -150,8 +169,17 @@ async fn main() {
     }
 }
 
-fn parse_txids(s: &str) -> HashSet<bitcoin::Txid> {
-    s.split(',')
-        .filter_map(|t| t.trim().parse().ok())
-        .collect()
+fn parse_txids(s: &str) -> Result<HashSet<bitcoin::Txid>, String> {
+    let mut txids = HashSet::new();
+    for raw in s.split(',') {
+        let txid_str = raw.trim();
+        if txid_str.is_empty() {
+            continue;
+        }
+        let parsed: bitcoin::Txid = txid_str
+            .parse()
+            .map_err(|_| format!("invalid txid '{}'", txid_str))?;
+        txids.insert(parsed);
+    }
+    Ok(txids)
 }

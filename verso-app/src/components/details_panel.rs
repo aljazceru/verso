@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
-use serde_json::Value;
 use serde_json::to_string as json_stringify;
+use serde_json::Value;
 
 #[component]
 pub fn DetailsPanel(details: Value) -> Element {
@@ -69,7 +69,7 @@ fn render_value(v: &Value) -> Element {
             if let Some((kind, url)) = classify_chain_value(s.as_str()) {
                 let full = s.clone();
                 let display = if s.len() > 36 {
-                    format!("{}…{}", &s[..12], &s[s.len()-10..])
+                    format!("{}…{}", &s[..12], &s[s.len() - 10..])
                 } else {
                     s.clone()
                 };
@@ -146,7 +146,8 @@ fn is_base58_address(value: &str) -> bool {
 fn is_bech32_address(value: &str) -> bool {
     let value = value.to_lowercase();
     let len = value.len();
-    let has_hrp = value.starts_with("bc1") || value.starts_with("tb1") || value.starts_with("bcrt1");
+    let has_hrp =
+        value.starts_with("bc1") || value.starts_with("tb1") || value.starts_with("bcrt1");
     if !has_hrp || !(14..=90).contains(&len) {
         return false;
     }

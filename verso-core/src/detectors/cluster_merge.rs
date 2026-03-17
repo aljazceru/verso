@@ -48,9 +48,7 @@ impl Detector for ClusterMergeDetector {
             // Group our inputs by their parent txid (= the "funding cluster").
             let mut cluster_map: HashMap<String, Vec<usize>> = HashMap::new();
 
-            for (idx, (inp_info, tx_in)) in
-                inputs.iter().zip(tx.input.iter()).enumerate()
-            {
+            for (idx, (inp_info, tx_in)) in inputs.iter().zip(tx.input.iter()).enumerate() {
                 if !inp_info.is_ours {
                     continue;
                 }
@@ -72,7 +70,7 @@ impl Detector for ClusterMergeDetector {
                 let null_txid = bitcoin::Txid::from_byte_array([0u8; 32]);
 
                 let mut funding_sources: HashMap<String, HashSet<String>> = HashMap::new();
-                for (parent_txid_str, _input_indices) in &cluster_map {
+                for parent_txid_str in cluster_map.keys() {
                     // Parse back to Txid to fetch the parent tx
                     let parent_txid: bitcoin::Txid = match parent_txid_str.parse() {
                         Ok(t) => t,
@@ -209,8 +207,8 @@ mod tests {
         let addr2 = regtest_p2tr_address();
         let out_addr = regtest_p2tr_address();
 
-        let gp1 = make_txid(1);  // First grandparent
-        let gp2 = make_txid(2);  // Second grandparent
+        let gp1 = make_txid(1); // First grandparent
+        let gp2 = make_txid(2); // Second grandparent
         let recv1 = make_txid(3); // First receive tx (from gp1)
         let recv2 = make_txid(4); // Second receive tx (from gp2)
         let spend_txid = make_txid(5); // Spend tx merging both
@@ -271,7 +269,10 @@ mod tests {
 
         let config = test_config();
         let findings = ClusterMergeDetector.detect(&graph, &config);
-        assert!(findings.is_empty(), "Single input cannot be a cluster merge");
+        assert!(
+            findings.is_empty(),
+            "Single input cannot be a cluster merge"
+        );
     }
 
     #[test]

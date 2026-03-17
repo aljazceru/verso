@@ -53,7 +53,6 @@ impl Detector for BehavioralDetector {
 
         // RBF: track per-tx whether it consistently enables/disables
         let mut rbf_enabled_txs: usize = 0;
-        let mut rbf_disabled_txs: usize = 0;
 
         let mut nonzero_locktime_count: usize = 0;
 
@@ -85,8 +84,6 @@ impl Detector for BehavioralDetector {
             let tx_enables_rbf = tx.input.iter().any(|i| i.sequence.is_rbf());
             if tx_enables_rbf {
                 rbf_enabled_txs += 1;
-            } else {
-                rbf_disabled_txs += 1;
             }
 
             // Input script types for our inputs
@@ -207,8 +204,8 @@ impl Detector for BehavioralDetector {
         if fee_rates.len() >= 3 {
             let avg = fee_rates.iter().sum::<f64>() / fee_rates.len() as f64;
             if avg > 0.0 {
-                let variance =
-                    fee_rates.iter().map(|&f| (f - avg).powi(2)).sum::<f64>() / fee_rates.len() as f64;
+                let variance = fee_rates.iter().map(|&f| (f - avg).powi(2)).sum::<f64>()
+                    / fee_rates.len() as f64;
                 let stddev = variance.sqrt();
                 let cv = stddev / avg;
                 if cv < 0.15 {
@@ -273,7 +270,11 @@ fn most_common_value(values: &[usize]) -> usize {
     for &v in values {
         *counts.entry(v).or_insert(0) += 1;
     }
-    counts.into_iter().max_by_key(|(_, c)| *c).map(|(v, _)| v).unwrap_or(0)
+    counts
+        .into_iter()
+        .max_by_key(|(_, c)| *c)
+        .map(|(v, _)| v)
+        .unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -344,7 +345,10 @@ mod tests {
 
         let config = test_config();
         let findings = BehavioralDetector.detect(&graph, &config);
-        assert!(findings.is_empty(), "Need >= 3 sends to trigger behavioral check");
+        assert!(
+            findings.is_empty(),
+            "Need >= 3 sends to trigger behavioral check"
+        );
     }
 
     #[test]
@@ -457,7 +461,10 @@ mod tests {
         // - All have 2 outputs → uniform_output_count ✓
         // - All RBF disabled → rbf_consistency ✓
         // That's 3 features → should trigger
-        assert!(!findings.is_empty(), "Should detect behavioral fingerprint with 3+ patterns");
+        assert!(
+            !findings.is_empty(),
+            "Should detect behavioral fingerprint with 3+ patterns"
+        );
         let f = &findings[0];
         assert_eq!(f.finding_type, FindingType::BehavioralFingerprint);
         let patterns = f.details["patterns"].as_array().unwrap();
