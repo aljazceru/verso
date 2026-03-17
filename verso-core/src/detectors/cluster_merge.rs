@@ -9,8 +9,6 @@ use crate::report::{Finding, FindingCategory, FindingType, Severity};
 
 use super::Detector;
 
-const COINBASE_SENTINEL: &str = "coinbase";
-
 pub struct ClusterMergeDetector;
 
 impl Detector for ClusterMergeDetector {
@@ -88,9 +86,9 @@ impl Detector for ClusterMergeDetector {
                         for p_inp in &parent_tx.input {
                             let gp_txid = p_inp.previous_output.txid;
                             if gp_txid == null_txid {
-                                // Null txid: coinbase or unknown — use shared sentinel
-                                // to match Python reference behavior
-                                gp_sources.insert(COINBASE_SENTINEL.to_string());
+                                // Null txid: coinbase or unknown — use per-parent sentinel
+                                // to distinguish different coinbase-funded parents
+                                gp_sources.insert(format!("coinbase:{}", parent_key));
                             } else {
                                 gp_sources.insert(gp_txid.to_string());
                             }
