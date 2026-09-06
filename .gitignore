@@ -26,3 +26,5 @@ Thumbs.db
 
 # Local cache
 .cargo/
+
+.planning/debug/
